@@ -27,7 +27,8 @@ type loadout_consumable = {
 type loadout_checkout = {
   id : Id.t;
   loadout_id : Id.t;
-  checkout_id : Id.t;
+  borrower_id : Id.t;
+  checkout_date : Timestamp.t;
   return_date : Timestamp.t option;
   rounds_fired : int;
   rain_exposure : bool;
@@ -38,7 +39,7 @@ type loadout_checkout = {
 let create_loadout
     ?(description = None)
     ?(notes = None)
-    id
+    ?(id = 0L)
     name
     created_date
   =
@@ -54,7 +55,7 @@ let create_loadout
 
 let create_loadout_item
     ?(notes = None)
-    id
+    ?(id = 0L)
     loadout_id
     item_id
     item_type
@@ -69,7 +70,7 @@ let create_loadout_item
 
 let create_loadout_consumable
     ?(notes = None)
-    id
+    ?(id = 0L)
     loadout_id
     consumable_id
     quantity
@@ -88,14 +89,16 @@ let create_loadout_checkout
     ?(rain_exposure = false)
     ?(ammo_type = "")
     ?(notes = None)
-    id
+    ?(id = 0L)
     loadout_id
-    checkout_id
+    borrower_id
+    checkout_date
   =
   {
     id;
     loadout_id;
-    checkout_id;
+    borrower_id;
+    checkout_date;
     return_date;
     rounds_fired;
     rain_exposure;

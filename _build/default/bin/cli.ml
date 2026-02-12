@@ -195,6 +195,7 @@ and add_firearm () =
   let purchase_date = GearTracker_ml.Timestamp.now () in
 
   let firearm = GearTracker_ml.Firearm.create
+      ~id:(GearTracker_ml.Id.generate ())
       ~notes
       ~is_nfa
       ~nfa_type
@@ -202,7 +203,6 @@ and add_firearm () =
       ~form_type
       ~barrel_length
       ~trust_name
-      (GearTracker_ml.Id.generate ())
       name
       caliber
       serial
@@ -260,9 +260,9 @@ and add_gear () =
   let purchase_date = GearTracker_ml.Timestamp.now () in
 
   let gear = GearTracker_ml.Gear.create
+      ~id:(GearTracker_ml.Id.generate ())
       ~brand
       ~notes
-      (GearTracker_ml.Id.generate ())
       name
       category
       purchase_date
@@ -462,10 +462,10 @@ and add_borrower () =
   let notes = prompt_optional "Notes (optional): " in
 
   let borrower = GearTracker_ml.Checkout.create_borrower
+      ~id:(GearTracker_ml.Id.generate ())
       ~phone
       ~email
       ~notes
-      (GearTracker_ml.Id.generate ())
       name
   in
 
@@ -554,9 +554,9 @@ and add_loadout () =
   let created_date = GearTracker_ml.Timestamp.now () in
 
   let loadout = GearTracker_ml.Loadout.create_loadout
+      ~id:(GearTracker_ml.Id.generate ())
       ~description
       ~notes
-      (GearTracker_ml.Id.generate ())
       name
       created_date
   in

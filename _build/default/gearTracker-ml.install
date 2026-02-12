@@ -5,6 +5,7 @@ lib: [
   "_build/install/default/lib/gearTracker-ml/ConsumableRepo.ml"
   "_build/install/default/lib/gearTracker-ml/FirearmRepo.ml"
   "_build/install/default/lib/gearTracker-ml/GearRepo.ml"
+  "_build/install/default/lib/gearTracker-ml/ImportExport.ml"
   "_build/install/default/lib/gearTracker-ml/LoadoutRepo.ml"
   "_build/install/default/lib/gearTracker-ml/LoadoutService.ml"
   "_build/install/default/lib/gearTracker-ml/META"
@@ -77,6 +78,9 @@ lib: [
   "_build/install/default/lib/gearTracker-ml/gearTracker_ml__Id.cmi"
   "_build/install/default/lib/gearTracker-ml/gearTracker_ml__Id.cmt"
   "_build/install/default/lib/gearTracker-ml/gearTracker_ml__Id.cmx"
+  "_build/install/default/lib/gearTracker-ml/gearTracker_ml__ImportExport.cmi"
+  "_build/install/default/lib/gearTracker-ml/gearTracker_ml__ImportExport.cmt"
+  "_build/install/default/lib/gearTracker-ml/gearTracker_ml__ImportExport.cmx"
   "_build/install/default/lib/gearTracker-ml/gearTracker_ml__Loadout.cmi"
   "_build/install/default/lib/gearTracker-ml/gearTracker_ml__Loadout.cmt"
   "_build/install/default/lib/gearTracker-ml/gearTracker_ml__Loadout.cmx"
@@ -122,5 +126,6 @@ bin: [
   "_build/install/default/bin/gearTracker-ml-gui"
 ]
 doc: [
+  "_build/install/default/doc/gearTracker-ml/LICENSE"
   "_build/install/default/doc/gearTracker-ml/README.md"
 ]

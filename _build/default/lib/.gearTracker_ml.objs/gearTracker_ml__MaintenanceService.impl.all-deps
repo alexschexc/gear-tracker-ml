@@ -2,5 +2,9 @@ gearTracker_ml__Checkout
 gearTracker_ml__CheckoutRepo
 gearTracker_ml__Database
 gearTracker_ml__Error
+gearTracker_ml__Firearm
+gearTracker_ml__FirearmRepo
+gearTracker_ml__Gear
+gearTracker_ml__GearRepo
 gearTracker_ml__Id
 gearTracker_ml__Timestamp

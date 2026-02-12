@@ -332,15 +332,23 @@ let create_loadouts_tab () =
 
   let btn_add = GButton.button ~label:"Add Loadout" () in
   let btn_edit = GButton.button ~label:"Edit" () in
+  let btn_add_item = GButton.button ~label:"Add Item" () in
+  let btn_checkout = GButton.button ~label:"Checkout" () in
+  let btn_return = GButton.button ~label:"Return" () in
   let btn_delete = GButton.button ~label:"Delete" () in
 
   btn_box#pack btn_add#coerce;
   btn_box#pack btn_edit#coerce;
+  btn_box#pack btn_add_item#coerce;
+  btn_box#pack btn_checkout#coerce;
+  btn_box#pack btn_return#coerce;
   btn_box#pack btn_delete#coerce;
 
   let cols = new GTree.column_list in
+  let col_id = cols#add Gobject.Data.string in
   let col_name = cols#add Gobject.Data.string in
   let col_items = cols#add Gobject.Data.string in
+  let col_status = cols#add Gobject.Data.string in
 
   let store = GTree.list_store cols in
   let view = GTree.view ~model:store () in
@@ -353,8 +361,10 @@ let create_loadouts_tab () =
     c#add_attribute renderer "text" col;
     ignore (view#append_column c)
   in
+  add_col "ID" col_id;
   add_col "Name" col_name;
   add_col "Items" col_items;
+  add_col "Status" col_status;
 
   let scrolled = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~shadow_type:`IN () in
   scrolled#add view#coerce;
@@ -371,14 +381,16 @@ let create_loadouts_tab () =
       store#clear ();
       List.iter (fun (l : R.Loadout.loadout) ->
           let row = store#append () in
-          store#set ~row ~column:col_name l.name;
-          store#set ~row ~column:col_items (match l.description with Some d -> d | None -> "");
+          store#set ~row ~column:col_id (R.Id.to_string l.R.Loadout.id);
+          store#set ~row ~column:col_name l.R.Loadout.name;
+          store#set ~row ~column:col_items (match l.R.Loadout.description with Some d -> d | None -> "");
+          store#set ~row ~column:col_status "Available";
         ) loadouts;
       lbl_status#set_text (Printf.sprintf "Loaded %d loadouts" (List.length loadouts))
     | Error e -> lbl_status#set_text ("Error: " ^ R.Error.to_string e)
   in
 
-  (vbox, btn_add, btn_edit, btn_delete, refresh)
+  (vbox, btn_add, btn_edit, btn_add_item, btn_checkout, btn_return, btn_delete, refresh)
 
 let create_checkouts_tab () =
   let vbox = GPack.vbox () in
@@ -650,6 +662,20 @@ let add_firearm_dialog ~parent () =
   let serial_entry = create_entry "Serial:" in
   let notes_entry = create_entry "Notes:" in
 
+  let clean_hbox = GPack.hbox ~spacing:5 () in
+  vbox#pack clean_hbox#coerce;
+  let lbl_clean = GMisc.label ~text:"Clean interval (rounds):" () in
+  clean_hbox#pack lbl_clean#coerce;
+  let entry_clean = GEdit.entry ~text:"500" () in
+  clean_hbox#pack entry_clean#coerce;
+
+  let oil_hbox = GPack.hbox ~spacing:5 () in
+  vbox#pack oil_hbox#coerce;
+  let lbl_oil = GMisc.label ~text:"Oil interval (days):" () in
+  oil_hbox#pack lbl_oil#coerce;
+  let entry_oil = GEdit.entry ~text:"90" () in
+  oil_hbox#pack entry_oil#coerce;
+
   dialog#add_button "Cancel" `DELETE;
   dialog#add_button "Add" `ADD;
 
@@ -662,9 +688,16 @@ let add_firearm_dialog ~parent () =
     let caliber = caliber_entry#text in
     let serial = serial_entry#text in
     let notes = if notes_entry#text = "" then None else Some notes_entry#text in
+    let clean_interval = try int_of_string entry_clean#text with _ -> 500 in
+    let oil_interval = try int_of_string entry_oil#text with _ -> 90 in
 
     if name <> "" && caliber <> "" && serial <> "" then
-      let firearm = R.Firearm.create ~notes (R.Id.generate ()) name caliber serial (R.Timestamp.now ()) in
+      let firearm = R.Firearm.create
+          ~id:(R.Id.generate ())
+          ~notes
+          ~clean_interval_rounds:clean_interval
+          ~oil_interval_days:oil_interval
+          name caliber serial (R.Timestamp.now ()) in
       Some (R.FirearmRepo.add firearm)
     else
       Some (Error (R.Error.validation_required_field "Name, caliber, serial required"))
@@ -700,7 +733,7 @@ let add_borrower_dialog ~parent () =
     let phone = phone_entry#text in
 
     if name <> "" then
-      let borrower = R.Checkout.create_borrower ~phone ~email:"" ~notes:None (R.Id.generate ()) name in
+      let borrower = R.Checkout.create_borrower ~id:(R.Id.generate ()) ~phone ~email:"" ~notes:None name in
       Some (R.CheckoutRepo.add_borrower borrower)
     else
       Some (Error (R.Error.validation_required_field "Name required"))
@@ -736,7 +769,7 @@ let add_gear_dialog ~parent () =
     let category = category_entry#text in
 
     if name <> "" && category <> "" then
-      let gear = R.Gear.create ~brand:None (R.Id.generate ()) name category (R.Timestamp.now ()) in
+      let gear = R.Gear.create ~id:(R.Id.generate ()) ~brand:None name category (R.Timestamp.now ()) in
       Some (R.GearRepo.add_soft_gear gear)
     else
       Some (Error (R.Error.validation_required_field "Name and category required"))
@@ -1010,7 +1043,7 @@ let log_maintenance_dialog ~parent () =
     if id_text <> "" && type_text <> "" then
       try
         let id = Int64.of_string id_text in
-        let details = if details_text = "" then None else Some details_text in
+        let details = if details_text = "" then "" else details_text in
         let rounds = try Some (int_of_string rounds_text) with _ -> None in
         Some (R.MaintenanceService.log_maintenance id "FIREARM" type_text details rounds None)
       with _ -> Some (Error (R.Error.validation_required_field "Invalid input"))
@@ -1428,7 +1461,7 @@ let add_loadout_dialog ~parent () =
 
     if name <> "" then
       let desc = if desc_entry#text = "" then None else Some desc_entry#text in
-      let loadout = R.Loadout.create_loadout ~description:desc (R.Id.generate ()) name (R.Timestamp.now ()) in
+      let loadout = R.Loadout.create_loadout ~id:(R.Id.generate ()) ~description:desc name (R.Timestamp.now ()) in
       Some (R.LoadoutRepo.add_loadout loadout)
     else
       Some (Error (R.Error.validation_required_field "Name required"))
@@ -1462,6 +1495,176 @@ let delete_loadout_dialog ~parent () =
     else
       Some (Error (R.Error.validation_required_field "ID required"))
 
+let add_item_to_loadout_dialog ~parent () =
+  let dialog = GWindow.dialog ~parent ~title:"Add Item to Loadout" ~modal:true () in
+  dialog#set_border_width 10;
+  let vbox = GPack.vbox ~spacing:10 () in
+  dialog#vbox#pack vbox#coerce;
+
+  let hbox1 = GPack.hbox ~spacing:5 () in
+  vbox#pack hbox1#coerce;
+  let lbl_loadout = GMisc.label ~text:"Loadout ID:" () in
+  hbox1#pack lbl_loadout#coerce;
+  let entry_loadout = GEdit.entry () in
+  hbox1#pack entry_loadout#coerce;
+
+  let hbox2 = GPack.hbox ~spacing:5 () in
+  vbox#pack hbox2#coerce;
+  let lbl_item = GMisc.label ~text:"Item ID:" () in
+  hbox2#pack lbl_item#coerce;
+  let entry_item = GEdit.entry () in
+  hbox2#pack entry_item#coerce;
+
+  let hbox3 = GPack.hbox ~spacing:5 () in
+  vbox#pack hbox3#coerce;
+  let lbl_type = GMisc.label ~text:"Item Type:" () in
+  hbox3#pack lbl_type#coerce;
+  let combo_type = GEdit.combo_box_text ~strings:["FIREARM"; "GEAR"; "NFA_ITEM"] ~active:0 () in
+  hbox3#pack (fst combo_type)#coerce;
+
+  let hbox4 = GPack.hbox ~spacing:5 () in
+  vbox#pack hbox4#coerce;
+  let lbl_notes = GMisc.label ~text:"Notes:" () in
+  hbox4#pack lbl_notes#coerce;
+  let entry_notes = GEdit.entry () in
+  hbox4#pack entry_notes#coerce;
+
+  dialog#add_button "Cancel" `DELETE;
+  dialog#add_button "Add" `ADD;
+
+  let response = dialog#run () in
+  dialog#destroy ();
+
+  if response = `DELETE then None
+  else
+    let loadout_id_text = entry_loadout#text in
+    let item_id_text = entry_item#text in
+    let item_type = match GEdit.text_combo_get_active combo_type with
+      | Some t -> t
+      | None -> "FIREARM"
+    in
+    let notes = if entry_notes#text = "" then None else Some entry_notes#text in
+
+    if loadout_id_text <> "" && item_id_text <> "" then
+      try
+        let loadout_id = Int64.of_string loadout_id_text in
+        let item_id = Int64.of_string item_id_text in
+        Some (R.LoadoutService.add_item_to_loadout loadout_id item_id item_type notes)
+      with _ -> Some (Error (R.Error.validation_required_field "Invalid ID"))
+    else
+      Some (Error (R.Error.validation_required_field "Loadout ID and Item ID required"))
+
+let checkout_loadout_dialog ~parent () =
+  let dialog = GWindow.dialog ~parent ~title:"Checkout Loadout" ~modal:true () in
+  dialog#set_border_width 10;
+  let vbox = GPack.vbox ~spacing:10 () in
+  dialog#vbox#pack vbox#coerce;
+
+  let hbox1 = GPack.hbox ~spacing:5 () in
+  vbox#pack hbox1#coerce;
+  let lbl_loadout = GMisc.label ~text:"Loadout ID:" () in
+  hbox1#pack lbl_loadout#coerce;
+  let entry_loadout = GEdit.entry () in
+  hbox1#pack entry_loadout#coerce;
+
+  let hbox2 = GPack.hbox ~spacing:5 () in
+  vbox#pack hbox2#coerce;
+  let lbl_borrower = GMisc.label ~text:"Borrower Name:" () in
+  hbox2#pack lbl_borrower#coerce;
+  let entry_borrower = GEdit.entry () in
+  hbox2#pack entry_borrower#coerce;
+
+  let hbox3 = GPack.hbox ~spacing:5 () in
+  vbox#pack hbox3#coerce;
+  let lbl_notes = GMisc.label ~text:"Notes:" () in
+  hbox3#pack lbl_notes#coerce;
+  let entry_notes = GEdit.entry () in
+  hbox3#pack entry_notes#coerce;
+
+  dialog#add_button "Cancel" `DELETE;
+  dialog#add_button "Checkout" `ADD;
+
+  let response = dialog#run () in
+  dialog#destroy ();
+
+  if response = `DELETE then None
+  else
+    let loadout_id_text = entry_loadout#text in
+    let borrower_name = entry_borrower#text in
+    let notes = if entry_notes#text = "" then None else Some entry_notes#text in
+
+    if loadout_id_text <> "" && borrower_name <> "" then
+      try
+        let loadout_id = Int64.of_string loadout_id_text in
+        Some (R.LoadoutService.checkout_loadout loadout_id borrower_name notes)
+      with _ -> Some (Error (R.Error.validation_required_field "Invalid ID"))
+    else
+      Some (Error (R.Error.validation_required_field "Loadout ID and Borrower Name required"))
+
+let return_loadout_dialog ~parent () =
+  let dialog = GWindow.dialog ~parent ~title:"Return Loadout" ~modal:true () in
+  dialog#set_border_width 10;
+  let vbox = GPack.vbox ~spacing:10 () in
+  dialog#vbox#pack vbox#coerce;
+
+  let hbox1 = GPack.hbox ~spacing:5 () in
+  vbox#pack hbox1#coerce;
+  let lbl_loadout = GMisc.label ~text:"Loadout ID:" () in
+  hbox1#pack lbl_loadout#coerce;
+  let entry_loadout = GEdit.entry () in
+  hbox1#pack entry_loadout#coerce;
+
+  let hbox2 = GPack.hbox ~spacing:5 () in
+  vbox#pack hbox2#coerce;
+  let lbl_rounds = GMisc.label ~text:"Rounds Fired:" () in
+  hbox2#pack lbl_rounds#coerce;
+  let entry_rounds = GEdit.entry () in
+  hbox2#pack entry_rounds#coerce;
+
+  let hbox3 = GPack.hbox ~spacing:5 () in
+  vbox#pack hbox3#coerce;
+  let lbl_rain = GMisc.label ~text:"Rain Exposure:" () in
+  hbox3#pack lbl_rain#coerce;
+  let check_rain = GButton.check_button ~active:false () in
+  hbox3#pack check_rain#coerce;
+
+  let hbox4 = GPack.hbox ~spacing:5 () in
+  vbox#pack hbox4#coerce;
+  let lbl_ammo = GMisc.label ~text:"Ammo Type Used:" () in
+  hbox4#pack lbl_ammo#coerce;
+  let entry_ammo = GEdit.entry () in
+  hbox4#pack entry_ammo#coerce;
+
+  let hbox5 = GPack.hbox ~spacing:5 () in
+  vbox#pack hbox5#coerce;
+  let lbl_notes = GMisc.label ~text:"Notes:" () in
+  hbox5#pack lbl_notes#coerce;
+  let entry_notes = GEdit.entry () in
+  hbox5#pack entry_notes#coerce;
+
+  dialog#add_button "Cancel" `DELETE;
+  dialog#add_button "Return" `ADD;
+
+  let response = dialog#run () in
+  dialog#destroy ();
+
+  if response = `DELETE then None
+  else
+    let loadout_id_text = entry_loadout#text in
+    let rounds_text = entry_rounds#text in
+    let rain_exposure = check_rain#active in
+    let ammo_type = entry_ammo#text in
+    let notes = if entry_notes#text = "" then None else Some entry_notes#text in
+
+    if loadout_id_text <> "" && rounds_text <> "" then
+      try
+        let loadout_id = Int64.of_string loadout_id_text in
+        let rounds_fired = int_of_string rounds_text in
+        Some (R.LoadoutService.return_loadout loadout_id rounds_fired rain_exposure ammo_type notes)
+      with _ -> Some (Error (R.Error.validation_required_field "Invalid input"))
+    else
+      Some (Error (R.Error.validation_required_field "Loadout ID and Rounds Fired required"))
+
 let add_nfa_item_dialog ~parent () =
   let dialog = GWindow.dialog ~parent ~title:"Add NFA Item" ~modal:true () in
   dialog#set_border_width 10;
@@ -1481,6 +1684,21 @@ let add_nfa_item_dialog ~parent () =
   let name_entry = create_entry "Name:" in
   let type_entry = create_entry "Type (SILENCER/SHORT_BARREL/OTHER):" in
   let tax_stamp_entry = create_entry "Tax Stamp ID:" in
+  let notes_entry = create_entry "Notes:" in
+
+  let clean_hbox = GPack.hbox ~spacing:5 () in
+  vbox#pack clean_hbox#coerce;
+  let lbl_clean = GMisc.label ~text:"Clean interval (rounds):" () in
+  clean_hbox#pack lbl_clean#coerce;
+  let entry_clean = GEdit.entry ~text:"500" () in
+  clean_hbox#pack entry_clean#coerce;
+
+  let oil_hbox = GPack.hbox ~spacing:5 () in
+  vbox#pack oil_hbox#coerce;
+  let lbl_oil = GMisc.label ~text:"Oil interval (days):" () in
+  oil_hbox#pack lbl_oil#coerce;
+  let entry_oil = GEdit.entry ~text:"90" () in
+  oil_hbox#pack entry_oil#coerce;
 
   dialog#add_button "Cancel" `DELETE;
   dialog#add_button "Add" `ADD;
@@ -1493,9 +1711,17 @@ let add_nfa_item_dialog ~parent () =
     let name = name_entry#text in
     let nfa_type = type_entry#text in
     let tax_stamp = tax_stamp_entry#text in
+    let notes = if notes_entry#text = "" then None else Some notes_entry#text in
+    let clean_interval = try int_of_string entry_clean#text with _ -> 500 in
+    let oil_interval = try int_of_string entry_oil#text with _ -> 90 in
 
     if name <> "" && nfa_type <> "" && tax_stamp <> "" then
-      let item = R.Gear.create_nfa_item (R.Id.generate ()) name nfa_type tax_stamp (R.Timestamp.now ()) in
+      let item = R.Gear.create_nfa_item
+          ~id:(R.Id.generate ())
+          ~notes
+          ~clean_interval_rounds:clean_interval
+          ~oil_interval_days:oil_interval
+          name nfa_type tax_stamp (R.Timestamp.now ()) in
       Some (R.NFAItemRepo.add item)
     else
       Some (Error (R.Error.validation_required_field "Name, type, and tax stamp ID required"))
@@ -1832,7 +2058,7 @@ let main () =
   let cons_label = GMisc.label ~text:"Consumables" () in
   ignore (notebook#append_page cons_vbox#coerce ~tab_label:cons_label#coerce);
 
-  let (loadout_vbox, btn_add_loadout, btn_edit_loadout, btn_del_loadout, refresh_loadout) = create_loadouts_tab () in
+  let (loadout_vbox, btn_add_loadout, btn_edit_loadout, btn_add_item_loadout, btn_checkout_loadout, btn_return_loadout, btn_del_loadout, refresh_loadout) = create_loadouts_tab () in
   let loadout_label = GMisc.label ~text:"Loadouts" () in
   ignore (notebook#append_page loadout_vbox#coerce ~tab_label:loadout_label#coerce);
 
@@ -2028,6 +2254,24 @@ let main () =
       match edit_loadout_dialog ~parent:window () with
       | None -> ()
       | Some (Ok ()) -> show_info window "Loadout updated!"; refresh_loadout ()
+      | Some (Error e) -> show_info window ("Error: " ^ R.Error.to_string e)
+    ));
+  ignore (btn_add_item_loadout#connect#clicked ~callback:(fun () ->
+      match add_item_to_loadout_dialog ~parent:window () with
+      | None -> ()
+      | Some (Ok ()) -> show_info window "Item added to loadout!"; refresh_loadout ()
+      | Some (Error e) -> show_info window ("Error: " ^ R.Error.to_string e)
+    ));
+  ignore (btn_checkout_loadout#connect#clicked ~callback:(fun () ->
+      match checkout_loadout_dialog ~parent:window () with
+      | None -> ()
+      | Some (Ok ()) -> show_info window "Loadout checked out!"; refresh_loadout ()
+      | Some (Error e) -> show_info window ("Error: " ^ R.Error.to_string e)
+    ));
+  ignore (btn_return_loadout#connect#clicked ~callback:(fun () ->
+      match return_loadout_dialog ~parent:window () with
+      | None -> ()
+      | Some (Ok ()) -> show_info window "Loadout returned!"; refresh_loadout ()
       | Some (Error e) -> show_info window ("Error: " ^ R.Error.to_string e)
     ));
   ignore (btn_del_loadout#connect#clicked ~callback:(fun () ->

@@ -9,6 +9,7 @@
    ConsumableRepo.ml
    FirearmRepo.ml
    GearRepo.ml
+   ImportExport.ml
    LoadoutRepo.ml
    LoadoutService.ml
    META
@@ -81,6 +82,9 @@
    gearTracker_ml__Id.cmi
    gearTracker_ml__Id.cmt
    gearTracker_ml__Id.cmx
+   gearTracker_ml__ImportExport.cmi
+   gearTracker_ml__ImportExport.cmt
+   gearTracker_ml__ImportExport.cmx
    gearTracker_ml__Loadout.cmi
    gearTracker_ml__Loadout.cmt
    gearTracker_ml__Loadout.cmx
@@ -119,14 +123,14 @@
    validation.ml))
  (libexec (gearTracker_ml.cmxs))
  (bin (gearTracker-ml gearTracker-ml-gui))
- (doc (README.md)))
+ (doc (LICENSE README.md)))
 (library
  (name gearTracker-ml)
  (kind normal)
  (archives (byte gearTracker_ml.cma) (native gearTracker_ml.cmxa))
  (plugins (byte gearTracker_ml.cma) (native gearTracker_ml.cmxs))
  (native_archives gearTracker_ml.a)
- (requires sqlite3 ptime unix)
+ (requires sqlite3 ptime unix csv)
  (main_module_name GearTracker_ml)
  (modes byte native)
  (modules
@@ -203,6 +207,10 @@
       (obj_name gearTracker_ml__Id)
       (visibility public)
       (source (path Id) (impl (path id.ml))))
+     (module
+      (obj_name gearTracker_ml__ImportExport)
+      (visibility public)
+      (source (path ImportExport) (impl (path ImportExport.ml))))
      (module
       (obj_name gearTracker_ml__Loadout)
       (visibility public)

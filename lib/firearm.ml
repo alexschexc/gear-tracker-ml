@@ -41,7 +41,7 @@ let create
     ?(maintenance_conditions = "")
     ?(last_cleaned_at = None)
     ?(last_oiled_at = None)
-    id
+    ?(id = 0L)
     name
     caliber
     serial_number

@@ -1,3 +1,7 @@
 (executable
- (name sql_test)
- (libraries sqlite3 unix))
+  (name sql_test)
+  (libraries sqlite3 unix))
+
+(executable
+  (name sample_data)
+  (libraries sqlite3 unix ptime gearTracker_ml))

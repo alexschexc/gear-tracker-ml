@@ -12,7 +12,7 @@ let add (firearm : Firearm.t) =
         last_cleaned_at, last_oiled_at, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     |sql} in
-    Sqlite3.bind stmt 1 (Sqlite3.Data.INT firearm.id) |> ignore;
+    (if firearm.id = 0L then Sqlite3.bind stmt 1 Sqlite3.Data.NULL else Sqlite3.bind stmt 1 (Sqlite3.Data.INT firearm.id)) |> ignore;
     Sqlite3.bind stmt 2 (Sqlite3.Data.TEXT firearm.name) |> ignore;
     Sqlite3.bind stmt 3 (Sqlite3.Data.TEXT firearm.caliber) |> ignore;
     Sqlite3.bind stmt 4 (Sqlite3.Data.TEXT firearm.serial_number) |> ignore;
@@ -202,6 +202,82 @@ let delete id =
     ignore (Sqlite3.finalize stmt);
     Database.close_db conn;
     Ok ()
+  with e ->
+    Database.close_db conn;
+    Error (Error.repository_database_error (Printexc.to_string e))
+
+let reset_rounds id =
+  let conn = Database.open_db () in
+  try
+    let stmt = Sqlite3.prepare conn "UPDATE firearms SET rounds_fired = 0, needs_maintenance = 0, updated_at = ? WHERE id = ?" in
+    Sqlite3.bind stmt 1 (Sqlite3.Data.INT (Timestamp.now ())) |> ignore;
+    Sqlite3.bind stmt 2 (Sqlite3.Data.INT id) |> ignore;
+    ignore (Sqlite3.step stmt);
+    ignore (Sqlite3.finalize stmt);
+    Database.close_db conn;
+    Ok ()
+  with e ->
+    Database.close_db conn;
+    Error (Error.repository_database_error (Printexc.to_string e))
+
+type maintenance_status = {
+  rounds_fired : int;
+  last_clean_date : int64 option;
+  needs_maintenance : bool;
+  reasons : string list;
+}
+
+let get_maintenance_status id =
+  let conn = Database.open_db () in
+  try
+    let stmt = Sqlite3.prepare conn {sql|
+      SELECT rounds_fired, clean_interval_rounds, last_cleaned_at, oil_interval_days, last_oiled_at,
+             needs_maintenance, maintenance_conditions
+      FROM firearms WHERE id = ?
+    |sql} in
+    Sqlite3.bind stmt 1 (Sqlite3.Data.INT id) |> ignore;
+    let result = match Sqlite3.step stmt with
+      | Sqlite3.Rc.ROW ->
+          let row i = Sqlite3.column stmt i in
+          let get_int i = match row i with Sqlite3.Data.INT x -> Int64.to_int x | _ -> 0 in
+          let get_int64 i = match row i with Sqlite3.Data.INT x -> Some x | Sqlite3.Data.NULL -> None | _ -> None in
+          let get_bool i = match row i with Sqlite3.Data.INT x -> x <> 0L | _ -> false in
+          let get_string i = match row i with Sqlite3.Data.TEXT s -> s | _ -> "" in
+
+          let rounds_fired = get_int 0 in
+          let clean_interval = get_int 1 in
+          let last_clean = get_int64 2 in
+          let oil_interval = get_int 3 in
+          let last_oiled = get_int64 4 in
+          let needs_maint = get_bool 5 in
+          let conditions = get_string 6 in
+
+          let reasons = [] in
+          let reasons = if rounds_fired >= clean_interval then "Rounds since cleaning exceeds limit" :: reasons else reasons in
+          let reasons = if oil_interval > 0 && last_oiled = None then "Never oiled" :: reasons else reasons in
+          let reasons = if oil_interval > 0 then
+            (let now = Timestamp.now () in
+             match last_oiled with
+             | Some t ->
+                 let days_since = Int64.to_int (Int64.div (Int64.sub now t) 86400L) in
+                 if days_since > oil_interval then "Oil interval exceeded" :: reasons else reasons
+             | None -> reasons)
+          else reasons in
+          let reasons = if needs_maint then
+            (if conditions <> "" then conditions :: reasons else "Maintenance required" :: reasons)
+          else reasons in
+
+          Ok (Some {
+            rounds_fired;
+            last_clean_date = last_clean;
+            needs_maintenance = needs_maint || reasons <> [];
+            reasons = List.rev reasons;
+          })
+      | _ -> Ok None
+    in
+    ignore (Sqlite3.finalize stmt);
+    Database.close_db conn;
+    result
   with e ->
     Database.close_db conn;
     Error (Error.repository_database_error (Printexc.to_string e))

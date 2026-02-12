@@ -1,0 +1,4 @@
+(executable
+  (name run_tests)
+  (libraries alcotest gearTracker-ml)
+  (modules run_tests))

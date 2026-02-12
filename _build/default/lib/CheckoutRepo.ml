@@ -7,7 +7,7 @@ let add_borrower (borrower : Checkout.borrower) =
       INSERT INTO borrowers (id, name, phone, email, notes, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     |} in
-    Sqlite3.bind stmt 1 (Sqlite3.Data.INT borrower.id) |> ignore;
+    (if borrower.id = 0L then Sqlite3.bind stmt 1 Sqlite3.Data.NULL else Sqlite3.bind stmt 1 (Sqlite3.Data.INT borrower.id)) |> ignore;
     Sqlite3.bind stmt 2 (Sqlite3.Data.TEXT borrower.name) |> ignore;
     Sqlite3.bind stmt 3 (Sqlite3.Data.TEXT borrower.phone) |> ignore;
     Sqlite3.bind stmt 4 (Sqlite3.Data.TEXT borrower.email) |> ignore;
@@ -79,19 +79,6 @@ let get_borrower_by_name name =
     ignore (Sqlite3.finalize stmt);
     Database.close_db conn;
     result
-  with e ->
-    Database.close_db conn;
-    Error (Error.repository_database_error (Printexc.to_string e))
-
-let delete_borrower id =
-  let conn = Database.open_db () in
-  try
-    let stmt = Sqlite3.prepare conn "DELETE FROM borrowers WHERE id = ?" in
-    Sqlite3.bind stmt 1 (Sqlite3.Data.INT id) |> ignore;
-    ignore (Sqlite3.step stmt);
-    ignore (Sqlite3.finalize stmt);
-    Database.close_db conn;
-    Ok ()
   with e ->
     Database.close_db conn;
     Error (Error.repository_database_error (Printexc.to_string e))
@@ -341,28 +328,201 @@ let get_all_maintenance () =
       match Sqlite3.step stmt with
       | Sqlite3.Rc.DONE -> acc
       | Sqlite3.Rc.ROW ->
-        let row i = Sqlite3.column stmt i in
-        let get_int i = match row i with Sqlite3.Data.INT x -> Int64.to_int x | _ -> 0 in
-        let get_string i = match row i with Sqlite3.Data.TEXT s -> s | _ -> "" in
-        let get_opt_int i = match row i with Sqlite3.Data.INT x -> Some (Int64.to_int x) | Sqlite3.Data.NULL -> None | _ -> None in
-        let log : Checkout.maintenance_log = {
-          Checkout.id = Id.of_int64 (Int64.of_int (get_int 0));
-          Checkout.item_id = Id.of_int64 (Int64.of_int (get_int 1));
-          Checkout.item_type = get_string 2;
-          Checkout.log_type = get_string 3;
-          Checkout.date = Id.of_int64 (Int64.of_int (get_int 4));
-          Checkout.details = if get_string 5 = "" then None else Some (get_string 5);
-          Checkout.ammo_count = get_opt_int 6;
-          Checkout.photo_path = if get_string 7 = "" then None else Some (get_string 7);
-          Checkout.created_at = Id.of_int64 (Int64.of_int (get_int 8));
-        } in
-        collect (log :: acc)
+          let row i = Sqlite3.column stmt i in
+          let get_int i = match row i with Sqlite3.Data.INT x -> Int64.to_int x | _ -> 0 in
+          let get_string i = match row i with Sqlite3.Data.TEXT s -> s | _ -> "" in
+          let get_opt_int i = match row i with Sqlite3.Data.INT x -> Some (Int64.to_int x) | Sqlite3.Data.NULL -> None | _ -> None in
+          let log : Checkout.maintenance_log = {
+            Checkout.id = Id.of_int64 (Int64.of_int (get_int 0));
+            Checkout.item_id = Id.of_int64 (Int64.of_int (get_int 1));
+            Checkout.item_type = get_string 2;
+            Checkout.log_type = get_string 3;
+            Checkout.date = Id.of_int64 (Int64.of_int (get_int 4));
+            Checkout.details = if get_string 5 = "" then None else Some (get_string 5);
+            Checkout.ammo_count = get_opt_int 6;
+            Checkout.photo_path = if get_string 7 = "" then None else Some (get_string 7);
+            Checkout.created_at = Id.of_int64 (Int64.of_int (get_int 8));
+          } in
+          collect (log :: acc)
       | _ -> raise (Failure "Unexpected sqlite result")
     in
     let result = collect [] in
     ignore (Sqlite3.finalize stmt);
     Database.close_db conn;
     Ok result
+  with e ->
+    Database.close_db conn;
+    Error (Error.repository_database_error (Printexc.to_string e))
+
+let get_active_checkouts_by_item_ids item_ids =
+  let conn = Database.open_db () in
+  try
+    let placeholders = String.concat "," (List.map (fun _ -> "?") item_ids) in
+    let stmt = Sqlite3.prepare conn (Printf.sprintf "SELECT * FROM checkouts WHERE item_id IN (%s) AND actual_return IS NULL" placeholders) in
+    let rec bind idx = function
+      | [] -> ()
+      | id :: rest ->
+          Sqlite3.bind stmt idx (Sqlite3.Data.INT id) |> ignore;
+          bind (idx + 1) rest
+    in
+    bind 1 item_ids;
+    let rec collect acc =
+      match Sqlite3.step stmt with
+      | Sqlite3.Rc.DONE -> acc
+      | Sqlite3.Rc.ROW ->
+          let row i = Sqlite3.column stmt i in
+          let get_int i = match row i with Sqlite3.Data.INT x -> Int64.to_int x | _ -> 0 in
+          let get_string i = match row i with Sqlite3.Data.TEXT s -> s | _ -> "" in
+          let checkout : Checkout.checkout = {
+            Checkout.id = Id.of_int64 (Int64.of_int (get_int 0));
+            Checkout.item_id = Id.of_int64 (Int64.of_int (get_int 1));
+            Checkout.item_type = get_string 2;
+            Checkout.borrower_id = Id.of_int64 (Int64.of_int (get_int 3));
+            Checkout.checkout_date = Id.of_int64 (Int64.of_int (get_int 4));
+            Checkout.expected_return = if get_int 5 = 0 then None else Some (Id.of_int64 (Int64.of_int (get_int 5)));
+            Checkout.actual_return = None;
+            Checkout.notes = if get_string 7 = "" then None else Some (get_string 7);
+            Checkout.created_at = Id.of_int64 (Int64.of_int (get_int 8));
+          } in
+          collect (checkout :: acc)
+      | _ -> raise (Failure "Unexpected sqlite result")
+    in
+    let result = collect [] in
+    ignore (Sqlite3.finalize stmt);
+    Database.close_db conn;
+    Ok result
+  with e ->
+    Database.close_db conn;
+    Error (Error.repository_database_error (Printexc.to_string e))
+
+let get_checkout_history () =
+  let conn = Database.open_db () in
+  try
+    let stmt = Sqlite3.prepare conn {sql|
+      SELECT c.*, b.name as borrower_name
+      FROM checkouts c
+      JOIN borrowers b ON c.borrower_id = b.id
+      WHERE c.actual_return IS NOT NULL
+      ORDER BY c.checkout_date DESC
+    |sql} in
+    let rec collect acc =
+      match Sqlite3.step stmt with
+      | Sqlite3.Rc.DONE -> acc
+      | Sqlite3.Rc.ROW ->
+          let row i = Sqlite3.column stmt i in
+          let get_int i = match row i with Sqlite3.Data.INT x -> Int64.to_int x | _ -> 0 in
+          let get_string i = match row i with Sqlite3.Data.TEXT s -> s | _ -> "" in
+          let checkout : Checkout.checkout = {
+            Checkout.id = Id.of_int64 (Int64.of_int (get_int 0));
+            Checkout.item_id = Id.of_int64 (Int64.of_int (get_int 1));
+            Checkout.item_type = get_string 2;
+            Checkout.borrower_id = Id.of_int64 (Int64.of_int (get_int 3));
+            Checkout.checkout_date = Id.of_int64 (Int64.of_int (get_int 4));
+            Checkout.expected_return = if get_int 5 = 0 then None else Some (Id.of_int64 (Int64.of_int (get_int 5)));
+            Checkout.actual_return = if get_int 6 = 0 then None else Some (Id.of_int64 (Int64.of_int (get_int 6)));
+            Checkout.notes = if get_string 7 = "" then None else Some (get_string 7);
+            Checkout.created_at = Id.of_int64 (Int64.of_int (get_int 8));
+          } in
+          collect (checkout :: acc)
+      | _ -> raise (Failure "Unexpected sqlite result")
+    in
+    let result = collect [] in
+    ignore (Sqlite3.finalize stmt);
+    Database.close_db conn;
+    Ok result
+  with e ->
+    Database.close_db conn;
+    Error (Error.repository_database_error (Printexc.to_string e))
+
+let get_checkout_by_item item_id =
+  let conn = Database.open_db () in
+  try
+    let stmt = Sqlite3.prepare conn "SELECT * FROM checkouts WHERE item_id = ? AND actual_return IS NULL LIMIT 1" in
+    Sqlite3.bind stmt 1 (Sqlite3.Data.INT item_id) |> ignore;
+    let result = match Sqlite3.step stmt with
+      | Sqlite3.Rc.ROW ->
+          let row i = Sqlite3.column stmt i in
+          let get_int i = match row i with Sqlite3.Data.INT x -> Int64.to_int x | _ -> 0 in
+          let get_string i = match row i with Sqlite3.Data.TEXT s -> s | _ -> "" in
+          Ok (Some {
+            Checkout.id = Id.of_int64 (Int64.of_int (get_int 0));
+            Checkout.item_id = Id.of_int64 (Int64.of_int (get_int 1));
+            Checkout.item_type = get_string 2;
+            Checkout.borrower_id = Id.of_int64 (Int64.of_int (get_int 3));
+            Checkout.checkout_date = Id.of_int64 (Int64.of_int (get_int 4));
+            Checkout.expected_return = if get_int 5 = 0 then None else Some (Id.of_int64 (Int64.of_int (get_int 5)));
+            Checkout.actual_return = if get_int 6 = 0 then None else Some (Id.of_int64 (Int64.of_int (get_int 6)));
+            Checkout.notes = if get_string 7 = "" then None else Some (get_string 7);
+            Checkout.created_at = Id.of_int64 (Int64.of_int (get_int 8));
+          })
+      | _ -> Ok None
+    in
+    ignore (Sqlite3.finalize stmt);
+    Database.close_db conn;
+    result
+  with e ->
+    Database.close_db conn;
+    Error (Error.repository_database_error (Printexc.to_string e))
+
+let get_logs_by_type item_id item_type =
+  let conn = Database.open_db () in
+  try
+    let stmt = Sqlite3.prepare conn "SELECT * FROM maintenance_logs WHERE item_id = ? AND item_type = ? ORDER BY date DESC" in
+    Sqlite3.bind stmt 1 (Sqlite3.Data.INT item_id) |> ignore;
+    Sqlite3.bind stmt 2 (Sqlite3.Data.TEXT item_type) |> ignore;
+    let rec collect acc =
+      match Sqlite3.step stmt with
+      | Sqlite3.Rc.DONE -> acc
+      | Sqlite3.Rc.ROW ->
+          let row i = Sqlite3.column stmt i in
+          let get_int i = match row i with Sqlite3.Data.INT x -> Int64.to_int x | _ -> 0 in
+          let get_string i = match row i with Sqlite3.Data.TEXT s -> s | _ -> "" in
+          let get_opt_int i = match row i with Sqlite3.Data.INT x -> Some (Int64.to_int x) | Sqlite3.Data.NULL -> None | _ -> None in
+          let log : Checkout.maintenance_log = {
+            Checkout.id = Id.of_int64 (Int64.of_int (get_int 0));
+            Checkout.item_id = Id.of_int64 (Int64.of_int (get_int 1));
+            Checkout.item_type = get_string 2;
+            Checkout.log_type = get_string 3;
+            Checkout.date = Id.of_int64 (Int64.of_int (get_int 4));
+            Checkout.details = if get_string 5 = "" then None else Some (get_string 5);
+            Checkout.ammo_count = get_opt_int 6;
+            Checkout.photo_path = if get_string 7 = "" then None else Some (get_string 7);
+            Checkout.created_at = Id.of_int64 (Int64.of_int (get_int 8));
+          } in
+          collect (log :: acc)
+      | _ -> raise (Failure "Unexpected sqlite result")
+    in
+    let result = collect [] in
+    ignore (Sqlite3.finalize stmt);
+    Database.close_db conn;
+    Ok result
+  with e ->
+    Database.close_db conn;
+    Error (Error.repository_database_error (Printexc.to_string e))
+
+let delete_borrower id =
+  let conn = Database.open_db () in
+  try
+    let stmt = Sqlite3.prepare conn "SELECT COUNT(*) FROM checkouts WHERE borrower_id = ? AND actual_return IS NULL" in
+    Sqlite3.bind stmt 1 (Sqlite3.Data.INT id) |> ignore;
+    let has_active = match Sqlite3.step stmt with
+      | Sqlite3.Rc.ROW ->
+          let row = Sqlite3.column stmt 0 in
+          (match row with Sqlite3.Data.INT x -> x > 0L | _ -> false)
+      | _ -> false
+    in
+    ignore (Sqlite3.finalize stmt);
+
+    if has_active then
+      let () = Database.close_db conn in
+      Error (Error.domain_borrower_has_active_checkouts id)
+    else
+      let stmt = Sqlite3.prepare conn "DELETE FROM borrowers WHERE id = ?" in
+      Sqlite3.bind stmt 1 (Sqlite3.Data.INT id) |> ignore;
+      ignore (Sqlite3.step stmt);
+      ignore (Sqlite3.finalize stmt);
+      Database.close_db conn;
+      Ok ()
   with e ->
     Database.close_db conn;
     Error (Error.repository_database_error (Printexc.to_string e))

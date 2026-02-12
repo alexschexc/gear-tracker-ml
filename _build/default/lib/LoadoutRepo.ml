@@ -7,7 +7,7 @@ let add_loadout (loadout : Loadout.loadout) =
       INSERT INTO loadouts (id, name, description, created_date, notes, updated_at)
       VALUES (?, ?, ?, ?, ?, ?)
     |} in
-    Sqlite3.bind stmt 1 (Sqlite3.Data.INT loadout.id) |> ignore;
+    (if loadout.id = 0L then Sqlite3.bind stmt 1 Sqlite3.Data.NULL else Sqlite3.bind stmt 1 (Sqlite3.Data.INT loadout.id)) |> ignore;
     Sqlite3.bind stmt 2 (Sqlite3.Data.TEXT loadout.name) |> ignore;
     Sqlite3.bind stmt 3 (Sqlite3.Data.TEXT (Option.value loadout.description ~default:"")) |> ignore;
     Sqlite3.bind stmt 4 (Sqlite3.Data.INT loadout.created_date) |> ignore;
@@ -103,7 +103,7 @@ let add_loadout_item (item : Loadout.loadout_item) =
       INSERT INTO loadout_items (id, loadout_id, item_id, item_type, notes)
       VALUES (?, ?, ?, ?, ?)
     |} in
-    Sqlite3.bind stmt 1 (Sqlite3.Data.INT item.id) |> ignore;
+    (if item.id = 0L then Sqlite3.bind stmt 1 Sqlite3.Data.NULL else Sqlite3.bind stmt 1 (Sqlite3.Data.INT item.id)) |> ignore;
     Sqlite3.bind stmt 2 (Sqlite3.Data.INT item.loadout_id) |> ignore;
     Sqlite3.bind stmt 3 (Sqlite3.Data.INT item.item_id) |> ignore;
     Sqlite3.bind stmt 4 (Sqlite3.Data.TEXT item.item_type) |> ignore;
@@ -252,19 +252,20 @@ let delete_loadout_consumables_by_loadout loadout_id =
 let add_loadout_checkout (checkout : Loadout.loadout_checkout) =
   let conn = Database.open_db () in
   try
-    let stmt = Sqlite3.prepare conn {|
-      INSERT INTO loadout_checkouts (id, loadout_id, checkout_id, return_date, rounds_fired,
+    let stmt = Sqlite3.prepare conn {sql|
+      INSERT INTO loadout_checkouts (id, loadout_id, borrower_id, checkout_date, return_date, rounds_fired,
         rain_exposure, ammo_type, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    |} in
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    |sql} in
     Sqlite3.bind stmt 1 (Sqlite3.Data.INT checkout.id) |> ignore;
     Sqlite3.bind stmt 2 (Sqlite3.Data.INT checkout.loadout_id) |> ignore;
-    Sqlite3.bind stmt 3 (Sqlite3.Data.INT checkout.checkout_id) |> ignore;
-    Sqlite3.bind stmt 4 (Sqlite3.Data.INT (Option.value ~default:0L checkout.return_date)) |> ignore;
-    Sqlite3.bind stmt 5 (Sqlite3.Data.INT (Int64.of_int checkout.rounds_fired)) |> ignore;
-    Sqlite3.bind stmt 6 (Sqlite3.Data.INT (if checkout.rain_exposure then 1L else 0L)) |> ignore;
-    Sqlite3.bind stmt 7 (Sqlite3.Data.TEXT checkout.ammo_type) |> ignore;
-    Sqlite3.bind stmt 8 (Sqlite3.Data.TEXT (Option.value checkout.notes ~default:"")) |> ignore;
+    Sqlite3.bind stmt 3 (Sqlite3.Data.INT checkout.borrower_id) |> ignore;
+    Sqlite3.bind stmt 4 (Sqlite3.Data.INT checkout.checkout_date) |> ignore;
+    (match checkout.return_date with Some t -> Sqlite3.bind stmt 5 (Sqlite3.Data.INT t) | None -> Sqlite3.bind stmt 5 Sqlite3.Data.NULL) |> ignore;
+    Sqlite3.bind stmt 6 (Sqlite3.Data.INT (Int64.of_int checkout.rounds_fired)) |> ignore;
+    Sqlite3.bind stmt 7 (Sqlite3.Data.INT (if checkout.rain_exposure then 1L else 0L)) |> ignore;
+    Sqlite3.bind stmt 8 (Sqlite3.Data.TEXT checkout.ammo_type) |> ignore;
+    Sqlite3.bind stmt 9 (Sqlite3.Data.TEXT (Option.value ~default:"" checkout.notes)) |> ignore;
     ignore (Sqlite3.step stmt);
     ignore (Sqlite3.finalize stmt);
     Database.close_db conn;
@@ -282,21 +283,23 @@ let get_loadout_checkouts loadout_id =
       match Sqlite3.step stmt with
       | Sqlite3.Rc.DONE -> acc
       | Sqlite3.Rc.ROW ->
-        let row i = Sqlite3.column stmt i in
-        let get_int i = match row i with Sqlite3.Data.INT x -> Int64.to_int x | _ -> 0 in
-        let get_int64_opt i = match row i with Sqlite3.Data.INT x -> Some x | Sqlite3.Data.NULL -> None | _ -> None in
-        let get_string i = match row i with Sqlite3.Data.TEXT s -> s | _ -> "" in
-        let get_opt_string i = match row i with Sqlite3.Data.TEXT s -> Some s | Sqlite3.Data.NULL -> None | _ -> None in
-        let checkout : Loadout.loadout_checkout = {
-          Loadout.id = Id.of_int64 (Int64.of_int (get_int 0));
-          Loadout.loadout_id = Id.of_int64 (Int64.of_int (get_int 1));
-          Loadout.checkout_id = Id.of_int64 (Int64.of_int (get_int 2));
-           Loadout.return_date = get_int64_opt 3;
-           Loadout.rounds_fired = get_int 4;
-           Loadout.rain_exposure = (get_int 5 = 1);
-           Loadout.ammo_type = get_string 6;
-            Loadout.notes = get_opt_string 7;
-         } in
+          let row i = Sqlite3.column stmt i in
+          let get_int i = match row i with Sqlite3.Data.INT x -> Int64.to_int x | _ -> 0 in
+          let get_int64 i = match row i with Sqlite3.Data.INT x -> x | _ -> 0L in
+          let get_int64_opt i = match row i with Sqlite3.Data.INT x -> Some x | Sqlite3.Data.NULL -> None | _ -> None in
+          let get_string i = match row i with Sqlite3.Data.TEXT s -> s | _ -> "" in
+          let get_opt_string i = match row i with Sqlite3.Data.TEXT s -> Some s | Sqlite3.Data.NULL -> None | _ -> None in
+          let checkout : Loadout.loadout_checkout = {
+            Loadout.id = get_int64 (get_int 0);
+            Loadout.loadout_id = get_int64 (get_int 1);
+            Loadout.borrower_id = get_int64 (get_int 2);
+            Loadout.checkout_date = get_int64 (get_int 3);
+            Loadout.return_date = get_int64_opt 4;
+            Loadout.rounds_fired = get_int 5;
+            Loadout.rain_exposure = (get_int 6 = 1);
+            Loadout.ammo_type = get_string 7;
+            Loadout.notes = get_opt_string 8;
+          } in
          collect (checkout :: acc)
       | _ -> raise (Failure "Unexpected sqlite result")
     in
@@ -308,19 +311,19 @@ let get_loadout_checkouts loadout_id =
     Database.close_db conn;
     Error (Error.repository_database_error (Printexc.to_string e))
 
-let update_loadout_checkout_return id return_date rounds_fired rain_exposure ammo_type notes =
+let update_loadout_checkout_return loadout_id return_date rounds_fired rain_exposure ammo_type notes =
   let conn = Database.open_db () in
   try
     let stmt = Sqlite3.prepare conn {|
       UPDATE loadout_checkouts SET return_date = ?, rounds_fired = ?, rain_exposure = ?,
-        ammo_type = ?, notes = ? WHERE id = ?
+        ammo_type = ?, notes = ? WHERE loadout_id = ? AND return_date IS NULL
     |} in
-    Sqlite3.bind stmt 1 (Sqlite3.Data.INT (Option.value ~default:0L (return_date |> Option.map Int64.of_int))) |> ignore;
+    Sqlite3.bind stmt 1 (Sqlite3.Data.INT return_date) |> ignore;
     Sqlite3.bind stmt 2 (Sqlite3.Data.INT (Int64.of_int rounds_fired)) |> ignore;
     Sqlite3.bind stmt 3 (Sqlite3.Data.INT (if rain_exposure then 1L else 0L)) |> ignore;
     Sqlite3.bind stmt 4 (Sqlite3.Data.TEXT ammo_type) |> ignore;
     Sqlite3.bind stmt 5 (Sqlite3.Data.TEXT (Option.value ~default:"" notes)) |> ignore;
-    Sqlite3.bind stmt 6 (Sqlite3.Data.INT id) |> ignore;
+    Sqlite3.bind stmt 6 (Sqlite3.Data.INT loadout_id) |> ignore;
     ignore (Sqlite3.step stmt);
     ignore (Sqlite3.finalize stmt);
     Database.close_db conn;

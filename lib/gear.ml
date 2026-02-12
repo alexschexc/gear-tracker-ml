@@ -15,7 +15,7 @@ let create
     ?(brand = None)
     ?(notes = None)
     ?(status = "AVAILABLE")
-    id
+    ?(id = 0L)
     name
     category
     purchase_date
@@ -72,7 +72,7 @@ let create_nfa_item
     ?(needs_maintenance = false)
     ?(last_cleaned_at = None)
     ?(last_oiled_at = None)
-    id
+    ?(id = 0L)
     name
     nfa_type
     tax_stamp_id

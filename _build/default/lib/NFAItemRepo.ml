@@ -10,7 +10,7 @@ let add (item : Gear.nfa_item) =
         last_cleaned_at, last_oiled_at, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     |} in
-    Sqlite3.bind stmt 1 (Sqlite3.Data.INT item.nfa_id) |> ignore;
+    (if item.nfa_id = 0L then Sqlite3.bind stmt 1 Sqlite3.Data.NULL else Sqlite3.bind stmt 1 (Sqlite3.Data.INT item.nfa_id)) |> ignore;
     Sqlite3.bind stmt 2 (Sqlite3.Data.TEXT item.nfa_name) |> ignore;
     Sqlite3.bind stmt 3 (Sqlite3.Data.TEXT item.nfa_type) |> ignore;
     Sqlite3.bind stmt 4 (Sqlite3.Data.TEXT (Option.value item.manufacturer ~default:"")) |> ignore;

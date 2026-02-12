@@ -8,16 +8,6 @@ let set_db_path path = db_path := path
 
 let get_db_path () = !db_path
 
-let open_db ?(readonly=false) () =
-  if readonly then
-    Sqlite3.db_open ~mode:`READONLY !db_path
-  else
-    Sqlite3.db_open !db_path
-
-let close_db db = ignore (Sqlite3.db_close db)
-
-let db_exists () = Sys.file_exists !db_path
-
 let schema_sql = {|
 CREATE TABLE IF NOT EXISTS firearms (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -229,7 +219,8 @@ CREATE TABLE IF NOT EXISTS loadout_consumables (
 CREATE TABLE IF NOT EXISTS loadout_checkouts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     loadout_id INTEGER NOT NULL,
-    checkout_id INTEGER NOT NULL,
+    borrower_id INTEGER NOT NULL,
+    checkout_date INTEGER NOT NULL,
     return_date INTEGER,
     rounds_fired INTEGER DEFAULT 0,
     rain_exposure INTEGER DEFAULT 0,
@@ -239,16 +230,58 @@ CREATE TABLE IF NOT EXISTS loadout_checkouts (
 |}
 
 let init_schema db =
-  let stmt = Sqlite3.prepare db schema_sql in
-  ignore (Sqlite3.step stmt);
-  Sqlite3.finalize stmt
+  let rec exec_statements sql =
+    let len = String.length sql in
+    let rec find_next_semicolon pos =
+      if pos >= len then None
+      else if sql.[pos] = ';' then Some pos
+      else find_next_semicolon (pos + 1)
+    in
+    match find_next_semicolon 0 with
+    | None -> ()
+    | Some semi ->
+        let stmt_str = String.trim (String.sub sql 0 semi) in
+        if stmt_str <> "" then
+          try ignore (Sqlite3.exec db stmt_str) with _ -> ()
+        else
+          ();
+        let remaining = String.trim (String.sub sql (semi + 1) (len - semi - 1)) in
+        if remaining <> "" then exec_statements remaining
+  in
+  exec_statements schema_sql
 
 let migrate_columns db =
-  let ignore_result _ = () in
-  ignore_result (try Sqlite3.exec db "ALTER TABLE firearms ADD COLUMN last_cleaned_at INTEGER" with _ -> Sqlite3.Rc.OK);
-  ignore_result (try Sqlite3.exec db "ALTER TABLE firearms ADD COLUMN last_oiled_at INTEGER" with _ -> Sqlite3.Rc.OK);
-  ignore_result (try Sqlite3.exec db "ALTER TABLE nfa_items ADD COLUMN last_cleaned_at INTEGER" with _ -> Sqlite3.Rc.OK);
-  ignore_result (try Sqlite3.exec db "ALTER TABLE nfa_items ADD COLUMN last_oiled_at INTEGER" with _ -> Sqlite3.Rc.OK)
+  let ignore_db_error _ = () in
+  ignore_db_error (try let _ = Sqlite3.exec db "ALTER TABLE firearms ADD COLUMN last_cleaned_at INTEGER" in () with _ -> ());
+  ignore_db_error (try let _ = Sqlite3.exec db "ALTER TABLE firearms ADD COLUMN last_oiled_at INTEGER" in () with _ -> ());
+  ignore_db_error (try let _ = Sqlite3.exec db "ALTER TABLE nfa_items ADD COLUMN last_cleaned_at INTEGER" in () with _ -> ());
+  ignore_db_error (try let _ = Sqlite3.exec db "ALTER TABLE nfa_items ADD COLUMN last_oiled_at INTEGER" in () with _ -> ());
+  ignore_db_error (try let _ = Sqlite3.exec db "ALTER TABLE loadout_checkouts ADD COLUMN borrower_id INTEGER" in () with _ -> ());
+  ignore_db_error (try let _ = Sqlite3.exec db "ALTER TABLE loadout_checkouts ADD COLUMN checkout_date INTEGER" in () with _ -> ())
+
+let open_db ?(readonly=false) () =
+  let db = if readonly then
+    Sqlite3.db_open ~mode:`READONLY !db_path
+  else
+    Sqlite3.db_open !db_path
+  in
+  if not readonly then begin
+    (try
+       let stmt = Sqlite3.prepare db "SELECT name FROM sqlite_master WHERE type='table' AND name='firearms'" in
+       let has_tables = match Sqlite3.step stmt with
+         | Sqlite3.Rc.ROW -> true
+         | _ -> false
+       in
+       ignore (Sqlite3.finalize stmt);
+       if not has_tables then ignore (init_schema db)
+     with _ -> ignore (init_schema db));
+    migrate_columns db
+  end;
+  db
+
+let close_db db = ignore (Sqlite3.db_close db)
+
+let db_exists () = Sys.file_exists !db_path
 
 let transaction db f =
   ignore (Sqlite3.exec db "BEGIN TRANSACTION");

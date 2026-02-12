@@ -1,1 +1,1 @@
-lib/LoadoutService.ml: CheckoutService Error Id Int64 List Loadout LoadoutRepo Timestamp
+lib/LoadoutService.ml: Checkout CheckoutRepo CheckoutService Error Id List Loadout LoadoutRepo Timestamp

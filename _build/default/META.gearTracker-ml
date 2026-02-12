@@ -1,5 +1,5 @@
 description = ""
-requires = "ptime sqlite3 unix"
+requires = "csv ptime sqlite3 unix"
 archive(byte) = "gearTracker_ml.cma"
 archive(native) = "gearTracker_ml.cmxa"
 plugin(byte) = "gearTracker_ml.cma"

@@ -45,6 +45,9 @@ module GearRepo = GearTracker_ml__GearRepo
 (** @canonical GearTracker_ml.Id *)
 module Id = GearTracker_ml__Id
 
+(** @canonical GearTracker_ml.ImportExport *)
+module ImportExport = GearTracker_ml__ImportExport
+
 (** @canonical GearTracker_ml.Loadout *)
 module Loadout = GearTracker_ml__Loadout
 

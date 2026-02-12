@@ -37,7 +37,7 @@ let create_borrower
     ?(phone = "")
     ?(email = "")
     ?(notes = None)
-    id
+    ?(id = 0L)
     name
   =
   let now = Timestamp.now () in
@@ -55,7 +55,7 @@ let create_checkout
     ?(expected_return = None)
     ?(actual_return = None)
     ?(notes = None)
-    id
+    ?(id = 0L)
     item_id
     item_type
     borrower_id

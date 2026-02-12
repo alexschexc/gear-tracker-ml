@@ -16,13 +16,14 @@
 (documentation https://url/to/documentation)
 
 (package
- (name gearTracker-ml)
- (synopsis "Firearms and gear tracking application - OCaml port")
- (description "Offline desktop application for tracking firearms, gear, reloads, and related activities")
- (depends
-  ocaml
-  dune
-  sqlite3
-  ptime
-  uuidm
-  csv))
+  (name gearTracker-ml)
+  (synopsis "Firearms and gear tracking application - OCaml port")
+  (description "Offline desktop application for tracking firearms, gear, reloads, and related activities")
+  (depends
+   ocaml
+   dune
+   sqlite3
+   ptime
+   uuidm
+   csv
+   alcotest))
