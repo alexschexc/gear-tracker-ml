@@ -1,0 +1,246 @@
+(lang dune 3.20)
+(name gearTracker-ml)
+(sections (lib .) (libexec .) (bin ../../bin) (doc ../../doc/gearTracker-ml))
+(files
+ (lib
+  (AttachmentRepo.ml
+   CheckoutRepo.ml
+   CheckoutService.ml
+   ConsumableRepo.ml
+   FirearmRepo.ml
+   GearRepo.ml
+   LoadoutRepo.ml
+   LoadoutService.ml
+   META
+   MaintenanceService.ml
+   NFAItemRepo.ml
+   ReloadRepo.ml
+   TransferRepo.ml
+   checkout.ml
+   consumable.ml
+   core.ml
+   database.ml
+   dune-package
+   enums.ml
+   error.ml
+   firearm.ml
+   gear.ml
+   gearTracker_ml.a
+   gearTracker_ml.cma
+   gearTracker_ml.cmi
+   gearTracker_ml.cmt
+   gearTracker_ml.cmx
+   gearTracker_ml.cmxa
+   gearTracker_ml.ml
+   gearTracker_ml__.cmi
+   gearTracker_ml__.cmt
+   gearTracker_ml__.cmx
+   gearTracker_ml__.ml
+   gearTracker_ml__AttachmentRepo.cmi
+   gearTracker_ml__AttachmentRepo.cmt
+   gearTracker_ml__AttachmentRepo.cmx
+   gearTracker_ml__Checkout.cmi
+   gearTracker_ml__Checkout.cmt
+   gearTracker_ml__Checkout.cmx
+   gearTracker_ml__CheckoutRepo.cmi
+   gearTracker_ml__CheckoutRepo.cmt
+   gearTracker_ml__CheckoutRepo.cmx
+   gearTracker_ml__CheckoutService.cmi
+   gearTracker_ml__CheckoutService.cmt
+   gearTracker_ml__CheckoutService.cmx
+   gearTracker_ml__Consumable.cmi
+   gearTracker_ml__Consumable.cmt
+   gearTracker_ml__Consumable.cmx
+   gearTracker_ml__ConsumableRepo.cmi
+   gearTracker_ml__ConsumableRepo.cmt
+   gearTracker_ml__ConsumableRepo.cmx
+   gearTracker_ml__Core.cmi
+   gearTracker_ml__Core.cmt
+   gearTracker_ml__Core.cmx
+   gearTracker_ml__Database.cmi
+   gearTracker_ml__Database.cmt
+   gearTracker_ml__Database.cmx
+   gearTracker_ml__Enums.cmi
+   gearTracker_ml__Enums.cmt
+   gearTracker_ml__Enums.cmx
+   gearTracker_ml__Error.cmi
+   gearTracker_ml__Error.cmt
+   gearTracker_ml__Error.cmx
+   gearTracker_ml__Firearm.cmi
+   gearTracker_ml__Firearm.cmt
+   gearTracker_ml__Firearm.cmx
+   gearTracker_ml__FirearmRepo.cmi
+   gearTracker_ml__FirearmRepo.cmt
+   gearTracker_ml__FirearmRepo.cmx
+   gearTracker_ml__Gear.cmi
+   gearTracker_ml__Gear.cmt
+   gearTracker_ml__Gear.cmx
+   gearTracker_ml__GearRepo.cmi
+   gearTracker_ml__GearRepo.cmt
+   gearTracker_ml__GearRepo.cmx
+   gearTracker_ml__Id.cmi
+   gearTracker_ml__Id.cmt
+   gearTracker_ml__Id.cmx
+   gearTracker_ml__Loadout.cmi
+   gearTracker_ml__Loadout.cmt
+   gearTracker_ml__Loadout.cmx
+   gearTracker_ml__LoadoutRepo.cmi
+   gearTracker_ml__LoadoutRepo.cmt
+   gearTracker_ml__LoadoutRepo.cmx
+   gearTracker_ml__LoadoutService.cmi
+   gearTracker_ml__LoadoutService.cmt
+   gearTracker_ml__LoadoutService.cmx
+   gearTracker_ml__MaintenanceService.cmi
+   gearTracker_ml__MaintenanceService.cmt
+   gearTracker_ml__MaintenanceService.cmx
+   gearTracker_ml__NFAItemRepo.cmi
+   gearTracker_ml__NFAItemRepo.cmt
+   gearTracker_ml__NFAItemRepo.cmx
+   gearTracker_ml__Reload.cmi
+   gearTracker_ml__Reload.cmt
+   gearTracker_ml__Reload.cmx
+   gearTracker_ml__ReloadRepo.cmi
+   gearTracker_ml__ReloadRepo.cmt
+   gearTracker_ml__ReloadRepo.cmx
+   gearTracker_ml__Timestamp.cmi
+   gearTracker_ml__Timestamp.cmt
+   gearTracker_ml__Timestamp.cmx
+   gearTracker_ml__TransferRepo.cmi
+   gearTracker_ml__TransferRepo.cmt
+   gearTracker_ml__TransferRepo.cmx
+   gearTracker_ml__Validation.cmi
+   gearTracker_ml__Validation.cmt
+   gearTracker_ml__Validation.cmx
+   id.ml
+   loadout.ml
+   opam
+   reload.ml
+   timestamp.ml
+   validation.ml))
+ (libexec (gearTracker_ml.cmxs))
+ (bin (gearTracker-ml gearTracker-ml-gui))
+ (doc (README.md)))
+(library
+ (name gearTracker-ml)
+ (kind normal)
+ (archives (byte gearTracker_ml.cma) (native gearTracker_ml.cmxa))
+ (plugins (byte gearTracker_ml.cma) (native gearTracker_ml.cmxs))
+ (native_archives gearTracker_ml.a)
+ (requires sqlite3 ptime unix)
+ (main_module_name GearTracker_ml)
+ (modes byte native)
+ (modules
+  (wrapped
+   (group
+    (alias
+     (obj_name gearTracker_ml__)
+     (visibility public)
+     (kind alias)
+     (source (path GearTracker_ml__) (impl (path gearTracker_ml__.ml-gen))))
+    (name GearTracker_ml)
+    (modules
+     (module
+      (obj_name gearTracker_ml__AttachmentRepo)
+      (visibility public)
+      (source (path AttachmentRepo) (impl (path AttachmentRepo.ml))))
+     (module
+      (obj_name gearTracker_ml__Checkout)
+      (visibility public)
+      (source (path Checkout) (impl (path checkout.ml))))
+     (module
+      (obj_name gearTracker_ml__CheckoutRepo)
+      (visibility public)
+      (source (path CheckoutRepo) (impl (path CheckoutRepo.ml))))
+     (module
+      (obj_name gearTracker_ml__CheckoutService)
+      (visibility public)
+      (source (path CheckoutService) (impl (path CheckoutService.ml))))
+     (module
+      (obj_name gearTracker_ml__Consumable)
+      (visibility public)
+      (source (path Consumable) (impl (path consumable.ml))))
+     (module
+      (obj_name gearTracker_ml__ConsumableRepo)
+      (visibility public)
+      (source (path ConsumableRepo) (impl (path ConsumableRepo.ml))))
+     (module
+      (obj_name gearTracker_ml__Core)
+      (visibility public)
+      (source (path Core) (impl (path core.ml))))
+     (module
+      (obj_name gearTracker_ml__Database)
+      (visibility public)
+      (source (path Database) (impl (path database.ml))))
+     (module
+      (obj_name gearTracker_ml__Enums)
+      (visibility public)
+      (source (path Enums) (impl (path enums.ml))))
+     (module
+      (obj_name gearTracker_ml__Error)
+      (visibility public)
+      (source (path Error) (impl (path error.ml))))
+     (module
+      (obj_name gearTracker_ml__Firearm)
+      (visibility public)
+      (source (path Firearm) (impl (path firearm.ml))))
+     (module
+      (obj_name gearTracker_ml__FirearmRepo)
+      (visibility public)
+      (source (path FirearmRepo) (impl (path FirearmRepo.ml))))
+     (module
+      (obj_name gearTracker_ml__Gear)
+      (visibility public)
+      (source (path Gear) (impl (path gear.ml))))
+     (module
+      (obj_name gearTracker_ml__GearRepo)
+      (visibility public)
+      (source (path GearRepo) (impl (path GearRepo.ml))))
+     (module
+      (obj_name gearTracker_ml)
+      (visibility public)
+      (source (path GearTracker_ml) (impl (path gearTracker_ml.ml))))
+     (module
+      (obj_name gearTracker_ml__Id)
+      (visibility public)
+      (source (path Id) (impl (path id.ml))))
+     (module
+      (obj_name gearTracker_ml__Loadout)
+      (visibility public)
+      (source (path Loadout) (impl (path loadout.ml))))
+     (module
+      (obj_name gearTracker_ml__LoadoutRepo)
+      (visibility public)
+      (source (path LoadoutRepo) (impl (path LoadoutRepo.ml))))
+     (module
+      (obj_name gearTracker_ml__LoadoutService)
+      (visibility public)
+      (source (path LoadoutService) (impl (path LoadoutService.ml))))
+     (module
+      (obj_name gearTracker_ml__MaintenanceService)
+      (visibility public)
+      (source (path MaintenanceService) (impl (path MaintenanceService.ml))))
+     (module
+      (obj_name gearTracker_ml__NFAItemRepo)
+      (visibility public)
+      (source (path NFAItemRepo) (impl (path NFAItemRepo.ml))))
+     (module
+      (obj_name gearTracker_ml__Reload)
+      (visibility public)
+      (source (path Reload) (impl (path reload.ml))))
+     (module
+      (obj_name gearTracker_ml__ReloadRepo)
+      (visibility public)
+      (source (path ReloadRepo) (impl (path ReloadRepo.ml))))
+     (module
+      (obj_name gearTracker_ml__Timestamp)
+      (visibility public)
+      (source (path Timestamp) (impl (path timestamp.ml))))
+     (module
+      (obj_name gearTracker_ml__TransferRepo)
+      (visibility public)
+      (source (path TransferRepo) (impl (path TransferRepo.ml))))
+     (module
+      (obj_name gearTracker_ml__Validation)
+      (visibility public)
+      (source (path Validation) (impl (path validation.ml))))))
+   (wrapped true))))

@@ -1,0 +1,11 @@
+(library
+  (name gearTracker_ml)
+  (public_name gearTracker-ml)
+  (libraries sqlite3 ptime unix)
+  (modules
+   core gearTracker_ml id timestamp error enums
+   firearm gear checkout consumable reload loadout
+   database validation
+   FirearmRepo GearRepo ConsumableRepo CheckoutRepo ReloadRepo LoadoutRepo
+   CheckoutService LoadoutService MaintenanceService
+   AttachmentRepo NFAItemRepo TransferRepo))

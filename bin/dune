@@ -1,0 +1,11 @@
+(executable
+ (public_name gearTracker-ml)
+ (name main)
+ (libraries sqlite3 ptime unix gearTracker_ml lablgtk3)
+ (modules main cli))
+
+(executable
+ (public_name gearTracker-ml-gui)
+ (name gui)
+ (libraries sqlite3 ptime unix gearTracker_ml lablgtk3)
+ (modules gui))
