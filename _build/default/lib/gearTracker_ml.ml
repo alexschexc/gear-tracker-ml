@@ -24,3 +24,4 @@ module MaintenanceService = MaintenanceService
 module AttachmentRepo = AttachmentRepo
 module NFAItemRepo = NFAItemRepo
 module TransferRepo = TransferRepo
+module ImportExport = ImportExport

@@ -5,3 +5,11 @@
 (executable
   (name sample_data)
   (libraries sqlite3 unix ptime gearTracker_ml))
+
+(executable
+  (name test_import_export)
+  (libraries sqlite3 unix ptime gearTracker_ml))
+
+(executable
+  (name test_import_export_simple)
+  (libraries sqlite3 unix ptime gearTracker_ml))

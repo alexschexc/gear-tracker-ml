@@ -1,0 +1,115 @@
+name: Build Linux Binary
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup OCaml
+      uses: ocaml/setup-ocaml@v2
+      with:
+        ocaml-compiler: 5.0
+        opam-depext: true
+        opam-pin: false
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libgtk-3-dev \
+          libsqlite3-dev \
+          pkg-config \
+          musl-tools \
+          upx-ucl
+    
+    - name: Install opam dependencies
+      run: |
+        opam install -y . --deps-only
+        opam install -y lablgtk3
+    
+    - name: Build for Linux (standard)
+      run: |
+        eval $(opam env)
+        dune build --profile release
+    
+    - name: Build for Linux (static)
+      run: |
+        eval $(opam env)
+        # Attempt static build
+        dune build --profile static --workspace dune-workspace || true
+    
+    - name: Strip binaries
+      run: |
+        strip _build/default/bin/gearTracker-ml || true
+        strip _build/default/bin/gearTracker-ml-gui || true
+    
+    - name: Create AppDir structure
+      run: |
+        mkdir -p AppDir/usr/bin
+        mkdir -p AppDir/usr/share/applications
+        mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+        
+        # Copy binaries
+        cp _build/default/bin/gearTracker-ml AppDir/usr/bin/
+        cp _build/default/bin/gearTracker-ml-gui AppDir/usr/bin/ || true
+        
+        # Create desktop file
+        cat > AppDir/usr/share/applications/geartracker.desktop << 'EOF'
+        [Desktop Entry]
+        Name=GearTracker
+        Exec=gearTracker-ml-gui
+        Icon=geartracker
+        Type=Application
+        Categories=Utility;Database;
+        Comment=Firearms and gear tracking application
+        EOF
+        
+        # Copy desktop file to AppDir root
+        cp AppDir/usr/share/applications/geartracker.desktop AppDir/
+        
+        # Create AppRun script
+        cat > AppDir/AppRun << 'EOF'
+        #!/bin/bash
+        SELF=$(readlink -f "$0")
+        HERE=${SELF%/*}
+        export PATH="${HERE}/usr/bin:${PATH}"
+        cd "${HERE}/usr/bin"
+        exec ./gearTracker-ml-gui "$@"
+        EOF
+        chmod +x AppDir/AppRun
+    
+    - name: Download appimagetool
+      run: |
+        wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+        chmod +x appimagetool-x86_64.AppImage
+    
+    - name: Create AppImage
+      run: |
+        ./appimagetool-x86_64.AppImage AppDir GearTracker-x86_64.AppImage || true
+    
+    - name: Upload Linux artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: geartracker-linux
+        path: |
+          _build/default/bin/gearTracker-ml
+          _build/default/bin/gearTracker-ml-gui
+          GearTracker-x86_64.AppImage
+    
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          GearTracker-x86_64.AppImage
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

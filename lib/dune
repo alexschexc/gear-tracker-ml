@@ -1,7 +1,7 @@
 (library
   (name gearTracker_ml)
   (public_name gearTracker-ml)
-  (libraries sqlite3 ptime unix csv)
+  (libraries sqlite3 ptime unix)
   (modules
    core gearTracker_ml id timestamp error enums
    firearm gear checkout consumable reload loadout

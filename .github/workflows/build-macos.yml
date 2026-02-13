@@ -1,0 +1,92 @@
+name: Build macOS Binary
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup OCaml
+      uses: ocaml/setup-ocaml@v2
+      with:
+        ocaml-compiler: 5.0
+        opam-depext: true
+        opam-pin: false
+    
+    - name: Install Homebrew dependencies
+      run: |
+        brew install sqlite3 gtk+3 pkg-config
+    
+    - name: Install opam dependencies
+      run: |
+        opam install -y . --deps-only
+        opam install -y lablgtk3
+    
+    - name: Build for macOS
+      run: |
+        eval $(opam env)
+        dune build --profile release
+    
+    - name: Create app bundle
+      run: |
+        mkdir -p GearTracker.app/Contents/MacOS
+        mkdir -p GearTracker.app/Contents/Resources
+        cp _build/default/bin/gearTracker-ml-gui GearTracker.app/Contents/MacOS/
+        
+        # Create Info.plist
+        cat > GearTracker.app/Contents/Info.plist << 'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>CFBundleName</key>
+            <string>GearTracker</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.geartracker.ml</string>
+            <key>CFBundleVersion</key>
+            <string>1.0.0</string>
+            <key>CFBundleExecutable</key>
+            <string>gearTracker-ml-gui</string>
+            <key>LSMinimumSystemVersion</key>
+            <string>10.15</string>
+            <key>NSHighResolutionCapable</key>
+            <true/>
+        </dict>
+        </plist>
+        EOF
+    
+    - name: Create DMG
+      run: |
+        brew install create-dmg || true
+        create-dmg \
+          --volname "GearTracker Installer" \
+          --window-pos 200 120 \
+          --window-size 800 400 \
+          --icon-size 100 \
+          --app-drop-link 600 185 \
+          "GearTracker-macOS.dmg" \
+          "GearTracker.app" || true
+    
+    - name: Upload macOS artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: geartracker-macos
+        path: |
+          GearTracker.app
+          GearTracker-macOS.dmg
+    
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: GearTracker-macOS.dmg
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

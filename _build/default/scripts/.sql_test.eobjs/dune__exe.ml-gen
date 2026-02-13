@@ -8,3 +8,9 @@ module Sample_data = Dune__exe__Sample_data
 
 (** @canonical Dune__exe.Sql_test *)
 module Sql_test = Dune__exe__Sql_test
+
+(** @canonical Dune__exe.Test_import_export *)
+module Test_import_export = Dune__exe__Test_import_export
+
+(** @canonical Dune__exe.Test_import_export_simple *)
+module Test_import_export_simple = Dune__exe__Test_import_export_simple

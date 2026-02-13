@@ -617,23 +617,77 @@ let create_transfers_tab () =
 
 let create_import_export_tab () =
   let vbox = GPack.vbox ~spacing:10 () in
-  vbox#pack (GMisc.label ~text:"Import/Export functionality" ())#coerce;
+  vbox#set_border_width 10;
 
-  let btn_box = GPack.hbox ~spacing:5 () in
-  vbox#pack btn_box#coerce;
+  (* Export Section *)
+  let export_frame = GBin.frame ~label:"Export Data" () in
+  vbox#pack export_frame#coerce;
 
-  let btn_import = GButton.button ~label:"Import CSV" () in
-  let btn_export = GButton.button ~label:"Export CSV" () in
+  let export_vbox = GPack.vbox ~spacing:5 ~border_width:10 () in
+  export_frame#add export_vbox#coerce;
 
-  btn_box#pack btn_import#coerce;
-  btn_box#pack btn_export#coerce;
+  (* Export options checkboxes *)
+  let chk_firearms = GButton.check_button ~label:"Firearms" ~active:true () in
+  let chk_gear = GButton.check_button ~label:"Soft Gear" ~active:true () in
+  let chk_nfa = GButton.check_button ~label:"NFA Items" ~active:true () in
+  let chk_attachments = GButton.check_button ~label:"Attachments" ~active:true () in
+  let chk_consumables = GButton.check_button ~label:"Consumables" ~active:true () in
+  let chk_reload = GButton.check_button ~label:"Reload Batches" ~active:true () in
+  let chk_loadouts = GButton.check_button ~label:"Loadouts" ~active:true () in
+  let chk_borrowers = GButton.check_button ~label:"Borrowers" ~active:true () in
+  let chk_checkouts = GButton.check_button ~label:"Checkouts" ~active:true () in
+  let chk_transfers = GButton.check_button ~label:"Transfers" ~active:true () in
+  let chk_maintenance = GButton.check_button ~label:"Maintenance Logs" ~active:true () in
 
-  let lbl_status = GMisc.label ~text:"Ready" () in
+  let checkboxes = [
+    chk_firearms; chk_gear; chk_nfa; chk_attachments; chk_consumables;
+    chk_reload; chk_loadouts; chk_borrowers; chk_checkouts; chk_transfers; chk_maintenance
+  ] in
+
+  List.iter (fun chk -> export_vbox#pack chk#coerce) checkboxes;
+
+  let btn_export = GButton.button ~label:"Export to CSV..." () in
+  export_vbox#pack btn_export#coerce;
+
+  (* Import Section *)
+  let import_frame = GBin.frame ~label:"Import Data" () in
+  vbox#pack import_frame#coerce;
+
+  let import_vbox = GPack.vbox ~spacing:5 ~border_width:10 () in
+  import_frame#add import_vbox#coerce;
+
+  let lbl_import_info = GMisc.label 
+    ~text:"Select a CSV file to import. Duplicate records will be handled interactively."
+    ~line_wrap:true () in
+  import_vbox#pack lbl_import_info#coerce;
+
+  let btn_import = GButton.button ~label:"Import from CSV..." () in
+  import_vbox#pack btn_import#coerce;
+
+  (* Status label *)
+  let lbl_status = GMisc.label ~text:"Ready" ~selectable:true () in
   vbox#pack lbl_status#coerce;
+
+  let get_export_options () =
+    {
+      R.ImportExport.include_firearms = chk_firearms#active;
+      R.ImportExport.include_gear = chk_gear#active;
+      R.ImportExport.include_nfa_items = chk_nfa#active;
+      R.ImportExport.include_attachments = chk_attachments#active;
+      R.ImportExport.include_consumables = chk_consumables#active;
+      R.ImportExport.include_reload_batches = chk_reload#active;
+      R.ImportExport.include_loadouts = chk_loadouts#active;
+      R.ImportExport.include_borrowers = chk_borrowers#active;
+      R.ImportExport.include_checkouts = chk_checkouts#active;
+      R.ImportExport.include_transfers = chk_transfers#active;
+      R.ImportExport.include_maintenance_logs = chk_maintenance#active;
+      R.ImportExport.include_consumable_transactions = false;
+    }
+  in
 
   let refresh () = lbl_status#set_text "Ready" in
 
-  (vbox, btn_import, btn_export, refresh)
+  (vbox, btn_import, btn_export, refresh, get_export_options, lbl_status)
 
 let show_message ~parent ~message ~message_type () =
   let dialog = GWindow.message_dialog ~parent ~message_type ~buttons:GWindow.Buttons.close ~message () in
@@ -2078,7 +2132,7 @@ let main () =
   let trans_label = GMisc.label ~text:"Transfers" () in
   ignore (notebook#append_page trans_vbox#coerce ~tab_label:trans_label#coerce);
 
-  let (imex_vbox, btn_import, btn_export, refresh_imex) = create_import_export_tab () in
+  let (imex_vbox, btn_import, btn_export, refresh_imex, get_export_options, lbl_imex_status) = create_import_export_tab () in
   let imex_label = GMisc.label ~text:"Import/Export" () in
   ignore (notebook#append_page imex_vbox#coerce ~tab_label:imex_label#coerce);
 
@@ -2376,8 +2430,95 @@ let main () =
     ));
   refresh_trans ();
 
-  ignore (btn_import#connect#clicked ~callback:(fun () -> show_info window "Import CSV not implemented"));
-  ignore (btn_export#connect#clicked ~callback:(fun () -> show_info window "Export CSV not implemented"));
+  (* Import/Export button handlers *)
+  ignore (btn_export#connect#clicked ~callback:(fun () ->
+    let dialog = GWindow.file_chooser_dialog 
+      ~action:`SAVE 
+      ~parent:window 
+      ~title:"Export Data to CSV" () in
+    dialog#add_button "Cancel" `CANCEL;
+    dialog#add_button "Export" `ACCEPT;
+    dialog#set_current_name "geartracker_export.csv";
+    
+    (* Add filter for CSV files *)
+    let filter = GFile.filter () in
+    filter#set_name "CSV files";
+    filter#add_pattern "*.csv";
+    dialog#add_filter filter;
+    
+    let response = dialog#run () in
+    match response with
+    | `ACCEPT ->
+      (match dialog#filename with
+      | Some filename ->
+        dialog#destroy ();
+        lbl_imex_status#set_text "Exporting...";
+        let options = get_export_options () in
+        (match R.ImportExport.export_all_to_csv ~path:filename ~options () with
+        | Error e -> 
+          lbl_imex_status#set_text ("Export failed: " ^ R.Error.to_string e);
+          show_info window ("Export failed: " ^ R.Error.to_string e)
+        | Ok () ->
+          lbl_imex_status#set_text ("Exported to " ^ filename);
+          show_info window ("Export successful!"))
+      | None -> 
+        dialog#destroy ();
+        lbl_imex_status#set_text "Export cancelled")
+    | _ -> 
+      dialog#destroy ();
+      lbl_imex_status#set_text "Export cancelled"
+  ));
+
+  ignore (btn_import#connect#clicked ~callback:(fun () ->
+    let dialog = GWindow.file_chooser_dialog 
+      ~action:`OPEN 
+      ~parent:window 
+      ~title:"Import Data from CSV" () in
+    dialog#add_button "Cancel" `CANCEL;
+    dialog#add_button "Import" `ACCEPT;
+    
+    (* Add filter for CSV files *)
+    let filter = GFile.filter () in
+    filter#set_name "CSV files";
+    filter#add_pattern "*.csv";
+    dialog#add_filter filter;
+    
+    let response = dialog#run () in
+    match response with
+    | `ACCEPT ->
+      (match dialog#filename with
+      | Some filename ->
+        dialog#destroy ();
+        lbl_imex_status#set_text "Importing...";
+        
+        (* Duplicate handler - for now, always skip duplicates *)
+        let on_duplicate (dup : R.ImportExport.duplicate_info) =
+          Printf.printf "Duplicate found: %s (ID: %s)\n" dup.name (R.Id.to_string dup.id);
+          R.ImportExport.Skip
+        in
+        
+        (match R.ImportExport.import_all_from_csv ~path:filename ~dry_run:false ~on_duplicate () with
+        | Error e -> 
+          lbl_imex_status#set_text ("Import failed: " ^ R.Error.to_string e);
+          show_info window ("Import failed: " ^ R.Error.to_string e)
+        | Ok result ->
+          let msg = Printf.sprintf 
+            "Import complete!\n\nTotal rows: %d\nImported: %d\nSkipped: %d\nOverwritten: %d\nErrors: %d"
+            result.overall_stats.total_rows
+            result.overall_stats.imported
+            result.overall_stats.skipped
+            result.overall_stats.overwritten
+            result.overall_stats.errors
+          in
+          lbl_imex_status#set_text ("Import complete - " ^ string_of_int result.overall_stats.imported ^ " items imported");
+          show_info window msg)
+      | None -> 
+        dialog#destroy ();
+        lbl_imex_status#set_text "Import cancelled")
+    | _ -> 
+      dialog#destroy ();
+      lbl_imex_status#set_text "Import cancelled"
+  ));
   refresh_imex ();
 
   refresh_fw ();

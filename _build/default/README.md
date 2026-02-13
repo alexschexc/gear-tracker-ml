@@ -91,6 +91,15 @@ GearTracker_ml.Database.set_db_path "/path/to/tracker.db"
 
 ## Building
 
+### Prerequisites
+
+- OCaml 5.0+
+- opam (OCaml package manager)
+- GTK+ 3 (for GUI)
+- SQLite3
+
+### Quick Build
+
 ```bash
 # Build the library and CLI
 dune build
@@ -100,7 +109,70 @@ dune test
 
 # Run the CLI
 dune exec -- gearTracker-ml
+
+# Run the GUI
+dune exec -- gearTracker-ml-gui
 ```
+
+### Cross-Platform Builds
+
+This project supports building for Linux, macOS, and Windows.
+
+#### Linux
+
+```bash
+# Standard build
+./scripts/build_linux.sh
+
+# Or manually:
+opam install -y . --deps-only
+opam install -y lablgtk3
+dune build --profile release
+```
+
+#### macOS
+
+```bash
+# Install dependencies
+brew install opam gtk+3 sqlite3
+
+# Setup opam
+opam init --disable-sandboxing
+opam install -y . --deps-only
+opam install -y lablgtk3
+
+# Build
+dune build --profile release
+
+# Create app bundle (optional)
+./scripts/build_macos_app.sh
+```
+
+#### Windows (Cross-compile from Linux)
+
+```bash
+# Install MinGW cross-compiler
+sudo apt-get install mingw-w64
+
+# Setup Windows opam repository
+opam repository add windows https://github.com/ocaml-cross/opam-cross-windows.git
+
+# Install Windows toolchain
+opam install -y ocaml-windows ocaml-windows-mingw64
+
+# Build
+dune build --profile release --workspace dune-workspace.windows
+```
+
+### CI/CD Builds
+
+GitHub Actions workflows are configured to automatically build for all platforms:
+
+- `.github/workflows/build-linux.yml` - Linux binaries and AppImage
+- `.github/workflows/build-macos.yml` - macOS app bundle and DMG
+- `.github/workflows/build-windows.yml` - Windows executables
+
+Builds are triggered on pushes to `main` and tags starting with `v`.
 
 ## Project Structure
 
@@ -108,34 +180,49 @@ dune exec -- gearTracker-ml
 gearTracker-ml/
 ├── bin/
 │   ├── main.ml          # CLI entry point
-│   └── cli.ml           # CLI interface
+│   ├── cli.ml           # CLI interface
+│   └── gui.ml           # GTK3 GUI
 ├── lib/
-│   ├── types/           # Domain types
-│   │   ├── core.ml     # Core types (Id, Timestamp, Error)
-│   │   ├── enums.ml    # Enumeration types
-│   │   ├── firearm.ml   # Firearm type
-│   │   ├── gear.ml      # Gear, NFA items, attachments
-│   │   ├── checkout.ml   # Checkout and maintenance types
-│   │   ├── consumable.ml # Consumable types
-│   │   ├── reload.ml    # Reload batch types
-│   │   └── loadout.ml   # Loadout types
-│   ├── repositories/    # Database access layer
-│   │   ├── firearm_repo.ml
-│   │   ├── gear_repo.ml
-│   │   ├── checkout_repo.ml
-│   │   ├── consumable_repo.ml
-│   │   ├── reload_repo.ml
-│   │   └── loadout_repo.ml
-│   ├── services/       # Business logic
-│   │   ├── checkout_service.ml
-│   │   ├── loadout_service.ml
-│   │   ├── maintenance_service.ml
-│   │   └── import_export_service.ml
-│   └── database.ml     # Database connection and schema
+│   ├── core.ml          # Core module exports
+│   ├── gearTracker_ml.ml # Top-level library module
+│   ├── id.ml            # ID type
+│   ├── timestamp.ml     # Timestamp utilities
+│   ├── error.ml         # Error types and handling
+│   ├── enums.ml         # Enumeration types
+│   ├── firearm.ml       # Firearm type
+│   ├── gear.ml          # Gear, NFA items, attachments
+│   ├── checkout.ml      # Checkout and maintenance types
+│   ├── consumable.ml    # Consumable types
+│   ├── reload.ml        # Reload batch types
+│   ├── loadout.ml       # Loadout types
+│   ├── database.ml      # Database connection and schema
+│   ├── validation.ml    # Validation utilities
+│   ├── ImportExport.ml  # CSV import/export
+│   ├── FirearmRepo.ml   # Firearm repository
+│   ├── GearRepo.ml      # Gear repository
+│   ├── ConsumableRepo.ml # Consumable repository
+│   ├── CheckoutRepo.ml  # Checkout repository
+│   ├── ReloadRepo.ml    # Reload repository
+│   ├── LoadoutRepo.ml   # Loadout repository
+│   ├── AttachmentRepo.ml # Attachment repository
+│   ├── NFAItemRepo.ml   # NFA item repository
+│   ├── TransferRepo.ml  # Transfer repository
+│   ├── CheckoutService.ml # Checkout business logic
+│   ├── LoadoutService.ml  # Loadout business logic
+│   └── MaintenanceService.ml # Maintenance business logic
+├── scripts/
+│   ├── build_linux.sh   # Linux build script
+│   ├── sample_data.ml   # Sample data generator
+│   └── test_import_export_simple.ml # Import/export tests
 ├── test/
-│   └── test_gearTracker_ml.ml  # Unit tests
-├── gearTracker-ml.opam   # Package definition
-└── dune-project         # Dune project file
+│   └── run_tests.ml     # Unit tests
+├── .github/workflows/   # CI/CD workflows
+│   ├── build-linux.yml
+│   ├── build-macos.yml
+│   └── build-windows.yml
+├── gearTracker-ml.opam  # Package definition
+├── dune-project         # Dune project file
+└── dune-workspace       # Dune workspace config
 ```
 
 ## License
