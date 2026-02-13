@@ -1,11 +1,23 @@
+; GearTracker GUI executables
+; Supports GTK3 backend
+
+; CLI executable (no GUI dependency)
 (executable
  (public_name gearTracker-ml)
  (name main)
- (libraries sqlite3 ptime unix gearTracker_ml lablgtk3)
+ (libraries sqlite3 ptime unix gearTracker_ml)
  (modules main cli))
 
+; GTK3 GUI
+(executable
+ (public_name gearTracker-ml-gui-gtk3)
+ (name gui_gtk3)
+ (libraries sqlite3 ptime unix gearTracker_ml lablgtk3)
+ (modules gui_gtk3))
+
+; Default GUI (points to GTK3)
 (executable
  (public_name gearTracker-ml-gui)
- (name gui)
- (libraries sqlite3 ptime unix gearTracker_ml lablgtk3)
- (modules gui))
+ (name gui_imgui)
+ (libraries sqlite3 ptime unix gearTracker_ml)
+ (modules gui_imgui))

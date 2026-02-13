@@ -114,6 +114,52 @@ let get_for_firearm firearm_id =
     Database.close_db conn;
     Error (Error.repository_database_error (Printexc.to_string e))
 
+let get_by_id id =
+  let conn = Database.open_db () in
+  try
+    let stmt = Sqlite3.prepare conn "SELECT * FROM attachments WHERE id = ?" in
+    Sqlite3.bind stmt 1 (Sqlite3.Data.INT id) |> ignore;
+    match Sqlite3.step stmt with
+    | Sqlite3.Rc.ROW ->
+        let row i = Sqlite3.column stmt i in
+        let get_int i = match row i with Sqlite3.Data.INT x -> Int64.to_int x | _ -> 0 in
+        let get_int64 i = match row i with Sqlite3.Data.INT x -> x | _ -> 0L in
+        let get_string i = match row i with Sqlite3.Data.TEXT s -> s | _ -> "" in
+        let get_opt_string i = match row i with Sqlite3.Data.TEXT s -> Some s | Sqlite3.Data.NULL -> None | _ -> None in
+        let get_opt_int i = match row i with Sqlite3.Data.INT x -> Some (Int64.to_int x) | Sqlite3.Data.NULL -> None | _ -> None in
+        let get_opt_int64 i = match row i with Sqlite3.Data.INT x -> Some x | Sqlite3.Data.NULL -> None | _ -> None in
+        let get_int64_opt = get_opt_int64 in
+        let attachment = {
+          Gear.att_id = Id.of_int64 (get_int64 0);
+          Gear.att_name = get_string 1;
+          Gear.att_category = get_string 2;
+          Gear.brand = get_opt_string 3;
+          Gear.model = get_opt_string 4;
+          Gear.serial_number = get_opt_string 5;
+          Gear.att_purchase_date = get_int64_opt 6;
+          Gear.mounted_on_firearm_id = get_int64_opt 7;
+          Gear.mount_position = get_opt_string 8;
+          Gear.zero_distance_yards = get_opt_int 9;
+          Gear.zero_notes = get_opt_string 10;
+          Gear.att_notes = get_opt_string 11;
+          Gear.att_created_at = get_int64 12;
+          Gear.att_updated_at = get_int64 13;
+        } in
+        ignore (Sqlite3.finalize stmt);
+        Database.close_db conn;
+        Ok (Some attachment)
+    | Sqlite3.Rc.DONE ->
+        ignore (Sqlite3.finalize stmt);
+        Database.close_db conn;
+        Ok None
+    | _ ->
+        ignore (Sqlite3.finalize stmt);
+        Database.close_db conn;
+        Error (Error.repository_database_error "Unexpected database result")
+  with e ->
+    Database.close_db conn;
+    Error (Error.repository_database_error (Printexc.to_string e))
+
 let delete id =
   let conn = Database.open_db () in
   try

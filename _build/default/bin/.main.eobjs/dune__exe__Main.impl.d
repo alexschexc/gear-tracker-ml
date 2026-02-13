@@ -1,1 +1,1 @@
-bin/main.ml: Cli
+bin/main.ml: Cli GearTracker_ml Printf

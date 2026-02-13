@@ -78,5 +78,8 @@ module TransferRepo = GearTracker_ml__TransferRepo
 (** @canonical GearTracker_ml.Validation *)
 module Validation = GearTracker_ml__Validation
 
+(** @canonical GearTracker_ml.Vault *)
+module Vault = GearTracker_ml__Vault
+
 module GearTracker_ml__ = struct end
 [@@deprecated "this module is shadowed"]

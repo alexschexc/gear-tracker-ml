@@ -26,4 +26,6 @@
    ptime
    uuidm
    csv
-   alcotest))
+   alcotest
+   lablgtk3
+  ))

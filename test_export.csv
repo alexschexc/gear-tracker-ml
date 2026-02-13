@@ -1,0 +1,48 @@
+; GearTracker Complete Export
+; Generated: 2026-02-13
+; Format: Sectioned CSV with [SECTION] headers
+
+[FIREARMS]
+id,name,caliber,serial_number,purchase_date,notes,status,is_nfa,nfa_type,tax_stamp_id,form_type,barrel_length,trust_name,transfer_status,rounds_fired,clean_interval_rounds,oil_interval_days,needs_maintenance,maintenance_conditions,last_cleaned_at,last_oiled_at,created_at,updated_at
+3,Shotgun,Benelli M2,BEN-003,2026-02-12,Sample Shotgun - Benelli M2 in 12 gauge,AVAILABLE,false,,,,,,OWNED,0,200,90,false,,,,2026-02-12,2026-02-12
+1,Rifle,AR-15,AR-001,2026-02-12,Sample Rifle - AR-15 in 5.56 NATO,AVAILABLE,false,,,,,,OWNED,0,500,90,false,,,,2026-02-12,2026-02-12
+2,Pistol,Glock 19,GLK-002,2026-02-12,Sample Pistol - Glock 19 in 9mm,AVAILABLE,false,,,,,,OWNED,0,300,60,false,,,,2026-02-12,2026-02-12
+
+[SOFT_GEAR]
+id,name,category,brand,purchase_date,notes,status,created_at,updated_at
+2,EOTech EXPS3,Optic,EOTech,2026-02-12,Sample Optic,AVAILABLE,2026-02-12,2026-02-12
+1,KAC Vertical Grip,Grip,KAC,2026-02-12,Sample Grip,AVAILABLE,2026-02-12,2026-02-12
+
+[NFA_ITEMS]
+id,name,nfa_type,manufacturer,serial_number,tax_stamp_id,caliber_bore,purchase_date,form_type,trust_name,notes,status,rounds_fired,clean_interval_rounds,oil_interval_days,needs_maintenance,maintenance_conditions,last_cleaned_at,last_oiled_at,created_at,updated_at
+1, suppressor,Silencer,,,QD-762,,2026-02-12,,,QD-762 suppressor,AVAILABLE,0,1000,180,false,,,,2026-02-12,2026-02-12
+2, Short Barrel Rifle,AR-15 SBR,,,SBR-001,,2026-02-12,,,AR-15 SBR,AVAILABLE,0,500,90,false,,,,2026-02-12,2026-02-12
+
+[ATTACHMENTS]
+id,name,category,brand,model,serial_number,purchase_date,mounted_on_firearm_id,mount_position,zero_distance_yards,zero_notes,notes,created_at,updated_at
+
+[CONSUMABLES]
+id,name,category,unit,quantity,min_quantity,notes,purchase_price,created_at,updated_at
+1,Test Ammo 53262,ammo,rounds,550,100,,0.,2026-02-12,2026-02-12
+
+[RELOAD_BATCHES]
+id,cartridge,firearm_id,date_created,bullet_maker,bullet_model,bullet_weight_gr,powder_name,powder_charge_gr,powder_lot,primer_maker,primer_type,case_brand,case_times_fired,case_prep_notes,coal_in,crimp_style,test_date,avg_velocity,es,sd,group_size_inches,group_distance_yards,intended_use,status,notes,created_at,updated_at
+
+[BORROWERS]
+id,name,phone,email,notes,created_at,updated_at
+1,John Smith,555-0101,,,2026-02-12,2026-02-12
+2,Jane Doe,555-0102,,,2026-02-12,2026-02-12
+
+[CHECKOUTS]
+id,item_id,item_type,borrower_id,checkout_date,expected_return,actual_return,notes,created_at
+
+[TRANSFERS]
+id,firearm_id,transfer_date,buyer_name,buyer_address,buyer_dl_number,buyer_ltc_number,sale_price,ffl_dealer,ffl_license,notes,created_at
+
+[MAINTENANCE_LOGS]
+id,item_id,item_type,log_type,date,details,ammo_count,photo_path,created_at
+1,1,FIREARM,CLEANING,2026-02-12,,0,,2026-02-12
+
+[LOADOUTS]
+id,name,description,created_date,notes,updated_at
+

@@ -17,6 +17,7 @@ depends: [
   "uuidm"
   "csv"
   "alcotest"
+  "lablgtk3"
   "odoc" {with-doc}
 ]
 build: [

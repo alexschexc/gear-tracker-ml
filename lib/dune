@@ -8,4 +8,5 @@
    database validation
    FirearmRepo GearRepo ConsumableRepo CheckoutRepo ReloadRepo LoadoutRepo
    CheckoutService LoadoutService MaintenanceService
-   AttachmentRepo NFAItemRepo TransferRepo ImportExport))
+   AttachmentRepo NFAItemRepo TransferRepo ImportExport
+   vault))

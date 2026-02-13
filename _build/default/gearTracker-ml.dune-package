@@ -117,14 +117,18 @@
    gearTracker_ml__Validation.cmi
    gearTracker_ml__Validation.cmt
    gearTracker_ml__Validation.cmx
+   gearTracker_ml__Vault.cmi
+   gearTracker_ml__Vault.cmt
+   gearTracker_ml__Vault.cmx
    id.ml
    loadout.ml
    opam
    reload.ml
    timestamp.ml
-   validation.ml))
+   validation.ml
+   vault.ml))
  (libexec (gearTracker_ml.cmxs))
- (bin (gearTracker-ml gearTracker-ml-gui))
+ (bin (gearTracker-ml gearTracker-ml-gui gearTracker-ml-gui-gtk3))
  (doc (LICENSE README.md)))
 (library
  (name gearTracker-ml)
@@ -255,5 +259,9 @@
      (module
       (obj_name gearTracker_ml__Validation)
       (visibility public)
-      (source (path Validation) (impl (path validation.ml))))))
+      (source (path Validation) (impl (path validation.ml))))
+     (module
+      (obj_name gearTracker_ml__Vault)
+      (visibility public)
+      (source (path Vault) (impl (path vault.ml))))))
    (wrapped true))))

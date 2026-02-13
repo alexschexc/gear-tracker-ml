@@ -1,0 +1,5 @@
+(executable
+ (public_name test_import_export)
+ (name test_import_export)
+ (libraries gearTracker_ml)
+ (modules test_import_export))

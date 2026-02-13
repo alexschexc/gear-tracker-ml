@@ -1,1 +1,0 @@
-../../../../static/lib/checkout.ml

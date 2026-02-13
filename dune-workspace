@@ -5,29 +5,4 @@
  (dev
   (flags (:standard -warn-error -A))))
 
-; Default context (native build)
 (context default)
-
-; Static Linux build context
-(context
- (default
-  (name static)
-  (host default)
-  (profile release)))
-
-; Windows cross-compilation context (using mingw-w64)
-; Requires: opam install ocaml-windows ocaml-windows-mingw conf-gcc-windows64
-(context
- (default
-  (name windows)
-  (host default)
-  (toolchain windows)
-  (profile release)))
-
-; macOS build context (for cross-compilation from Linux)
-; Note: macOS builds typically need to be done on macOS itself or using osxcross
-(context
- (default
-  (name macos)
-  (host default)
-  (profile release)))

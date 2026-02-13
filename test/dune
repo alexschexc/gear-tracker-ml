@@ -1,4 +1,9 @@
 (executable
-  (name run_tests)
-  (libraries alcotest gearTracker-ml)
-  (modules run_tests))
+   (name run_tests)
+   (libraries alcotest gearTracker-ml)
+   (modules run_tests))
+
+(executable
+   (name test_import_export)
+   (libraries gearTracker_ml)
+   (modules test_import_export))

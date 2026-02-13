@@ -12,6 +12,7 @@ module Reload = Reload
 module Loadout = Loadout
 module Database = Database
 module Validation = Validation
+module Vault = Vault
 module FirearmRepo = FirearmRepo
 module GearRepo = GearRepo
 module ConsumableRepo = ConsumableRepo

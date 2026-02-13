@@ -711,7 +711,610 @@ let import_firearms_section rows stats ~on_duplicate =
   in
   import_loop rows [] 0 stats []
 
-(* Similar functions for other entity types... *)
+let import_soft_gear_row headers row =
+  try
+    let id_str = match get_required_field ~name:"id" headers row with
+      | Ok v -> v
+      | Error errs -> raise (Failure (String.concat "; " errs))
+    in
+    let name = match get_required_field ~name:"name" headers row with
+      | Ok v -> v
+      | Error errs -> raise (Failure (String.concat "; " errs))
+    in
+    let category = match get_required_field ~name:"category" headers row with
+      | Ok v -> v
+      | Error errs -> raise (Failure (String.concat "; " errs))
+    in
+    let purchase_date_str = match get_required_field ~name:"purchase_date" headers row with
+      | Ok v -> v
+      | Error errs -> raise (Failure (String.concat "; " errs))
+    in
+    let purchase_date = match Timestamp.of_iso8601 purchase_date_str with
+      | Ok ts -> ts
+      | Error _ -> raise (Failure "Invalid purchase_date format")
+    in
+    let id = Id.of_string id_str in
+    let brand = get_optional_field ~name:"brand" headers row in
+    let notes = get_optional_field ~name:"notes" headers row in
+    let status = get_field ~name:"status" headers row |> Option.value ~default:"AVAILABLE" in
+    let created_at = match get_field ~name:"created_at" headers row with
+      | Some "" | None -> Timestamp.now ()
+      | Some s -> match Timestamp.of_iso8601 s with Ok ts -> ts | Error _ -> Timestamp.now ()
+    in
+    let updated_at = match get_field ~name:"updated_at" headers row with
+      | Some "" | None -> Timestamp.now ()
+      | Some s -> match Timestamp.of_iso8601 s with Ok ts -> ts | Error _ -> Timestamp.now ()
+    in
+    let gear : Gear.t = {
+      Gear.id;
+      name;
+      category;
+      brand;
+      purchase_date;
+      notes;
+      status;
+      created_at;
+      updated_at;
+    } in
+    Ok gear
+  with Failure msg -> Error [msg]
+    | e -> Error ["Unexpected error: " ^ Printexc.to_string e]
+
+let import_soft_gear_section rows stats ~on_duplicate =
+  let rec import_loop rows headers row_num stats acc =
+    match rows with
+    | [] -> Ok (List.rev acc, stats)
+    | row :: rest ->
+      if row_num = 0 then
+        (* Header row, save it and continue *)
+        import_loop rest row (row_num + 1) stats acc
+      else
+        match import_soft_gear_row headers row with
+        | Error errs ->
+          let stats = { stats with errors = stats.errors + 1 } in
+          import_loop rest headers (row_num + 1) stats acc
+        | Ok gear ->
+          (* Check for duplicates by ID *)
+          match GearRepo.get_soft_gear gear.id with
+          | Ok existing ->
+            let dup_info = {
+              entity_type = "soft_gear";
+              id = gear.id;
+              name = gear.name;
+              existing_record = existing.name;
+            } in
+            (match on_duplicate dup_info with
+             | Skip -> import_loop rest headers (row_num + 1) { stats with skipped = stats.skipped + 1 } acc
+             | Overwrite ->
+               (match GearRepo.delete_soft_gear gear.id with
+                | Error _ -> import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+                | Ok () ->
+                  (match GearRepo.add_soft_gear gear with
+                   | Error _ -> import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+                   | Ok () -> import_loop rest headers (row_num + 1) { stats with overwritten = stats.overwritten + 1 } acc))
+             | Import_as_new ->
+               let new_id = Id.generate () in
+               let gear = { gear with Gear.id = new_id } in
+               (match GearRepo.add_soft_gear gear with
+                | Error _ -> import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+                | Ok () -> import_loop rest headers (row_num + 1) { stats with imported = stats.imported + 1 } (gear :: acc))
+             | Cancel -> Error (Failure "Import cancelled"))
+          | Error _ ->
+            (* Not found, import as new *)
+            (match GearRepo.add_soft_gear gear with
+             | Error _ -> import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+             | Ok () -> import_loop rest headers (row_num + 1) { stats with imported = stats.imported + 1 } (gear :: acc))
+          | Error _ ->
+            import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+  in
+  import_loop rows [] 0 stats []
+
+let import_nfa_item_row headers row =
+  try
+    let id_str = match get_required_field ~name:"id" headers row with
+      | Ok v -> v
+      | Error errs -> raise (Failure (String.concat "; " errs))
+    in
+    let name = match get_required_field ~name:"name" headers row with
+      | Ok v -> v
+      | Error errs -> raise (Failure (String.concat "; " errs))
+    in
+    let nfa_type = match get_required_field ~name:"nfa_type" headers row with
+      | Ok v -> v
+      | Error errs -> raise (Failure (String.concat "; " errs))
+    in
+    let tax_stamp_id = match get_required_field ~name:"tax_stamp_id" headers row with
+      | Ok v -> v
+      | Error errs -> raise (Failure (String.concat "; " errs))
+    in
+    let purchase_date_str = match get_required_field ~name:"purchase_date" headers row with
+      | Ok v -> v
+      | Error errs -> raise (Failure (String.concat "; " errs))
+    in
+    let purchase_date = match Timestamp.of_iso8601 purchase_date_str with
+      | Ok ts -> ts
+      | Error _ -> raise (Failure "Invalid purchase_date format")
+    in
+    let id = Id.of_string id_str in
+    let manufacturer = get_optional_field ~name:"manufacturer" headers row in
+    let serial_number = get_optional_field ~name:"serial_number" headers row in
+    let caliber_bore = get_optional_field ~name:"caliber_bore" headers row in
+    let form_type = get_optional_field ~name:"form_type" headers row in
+    let trust_name = get_optional_field ~name:"trust_name" headers row in
+    let notes = get_optional_field ~name:"notes" headers row in
+    let status = get_field ~name:"status" headers row |> Option.value ~default:"AVAILABLE" in
+    let rounds_fired = get_field ~name:"rounds_fired" headers row |> Option.map int_of_string |> Option.value ~default:0 in
+    let clean_interval_rounds = get_field ~name:"clean_interval_rounds" headers row |> Option.map int_of_string |> Option.value ~default:500 in
+    let oil_interval_days = get_field ~name:"oil_interval_days" headers row |> Option.map int_of_string |> Option.value ~default:90 in
+    let needs_maintenance_str = get_field ~name:"needs_maintenance" headers row |> Option.value ~default:"false" in
+    let needs_maintenance = needs_maintenance_str = "true" || needs_maintenance_str = "1" in
+    let maintenance_conditions = get_optional_field ~name:"maintenance_conditions" headers row in
+    let last_cleaned_at = match get_field ~name:"last_cleaned_at" headers row with
+      | Some "" | None -> None
+      | Some s -> match Timestamp.of_iso8601 s with Ok ts -> Some ts | Error _ -> None
+    in
+    let last_oiled_at = match get_field ~name:"last_oiled_at" headers row with
+      | Some "" | None -> None
+      | Some s -> match Timestamp.of_iso8601 s with Ok ts -> Some ts | Error _ -> None
+    in
+    let created_at = match get_field ~name:"created_at" headers row with
+      | Some "" | None -> Timestamp.now ()
+      | Some s -> match Timestamp.of_iso8601 s with Ok ts -> ts | Error _ -> Timestamp.now ()
+    in
+    let updated_at = match get_field ~name:"updated_at" headers row with
+      | Some "" | None -> Timestamp.now ()
+      | Some s -> match Timestamp.of_iso8601 s with Ok ts -> ts | Error _ -> Timestamp.now ()
+    in
+    let nfa_item : Gear.nfa_item = {
+      Gear.nfa_id = id;
+      Gear.nfa_name = name;
+      Gear.nfa_type;
+      manufacturer;
+      serial_number;
+      Gear.tax_stamp_id = tax_stamp_id;
+      caliber_bore;
+      Gear.nfa_purchase_date = purchase_date;
+      form_type;
+      trust_name;
+      Gear.nfa_notes = notes;
+      Gear.nfa_status = status;
+      Gear.rounds_fired = rounds_fired;
+      Gear.clean_interval_rounds = clean_interval_rounds;
+      Gear.oil_interval_days = oil_interval_days;
+      Gear.needs_maintenance = needs_maintenance;
+      Gear.maintenance_conditions = maintenance_conditions;
+      Gear.last_cleaned_at = last_cleaned_at;
+      Gear.last_oiled_at = last_oiled_at;
+      Gear.nfa_created_at = created_at;
+      Gear.nfa_updated_at = updated_at;
+    } in
+    Ok nfa_item
+  with Failure msg -> Error [msg]
+    | e -> Error ["Unexpected error: " ^ Printexc.to_string e]
+
+let import_nfa_items_section rows stats ~on_duplicate =
+  let rec import_loop rows headers row_num stats acc =
+    match rows with
+    | [] -> Ok (List.rev acc, stats)
+    | row :: rest ->
+      if row_num = 0 then
+        (* Header row, save it and continue *)
+        import_loop rest row (row_num + 1) stats acc
+      else
+        match import_nfa_item_row headers row with
+        | Error errs ->
+          let stats = { stats with errors = stats.errors + 1 } in
+          import_loop rest headers (row_num + 1) stats acc
+        | Ok nfa_item ->
+          (* Check for duplicates by ID *)
+          match NFAItemRepo.get_by_id nfa_item.Gear.nfa_id with
+          | Ok (Some existing) ->
+            let dup_info = {
+              entity_type = "nfa_item";
+              id = nfa_item.Gear.nfa_id;
+              name = nfa_item.Gear.nfa_name;
+              existing_record = existing.Gear.nfa_name;
+            } in
+            (match on_duplicate dup_info with
+             | Skip -> import_loop rest headers (row_num + 1) { stats with skipped = stats.skipped + 1 } acc
+             | Overwrite ->
+               (match NFAItemRepo.delete nfa_item.Gear.nfa_id with
+                | Error _ -> import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+                | Ok () ->
+                  (match NFAItemRepo.add nfa_item with
+                   | Error _ -> import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+                   | Ok () -> import_loop rest headers (row_num + 1) { stats with overwritten = stats.overwritten + 1 } acc))
+             | Import_as_new ->
+               let new_id = Id.generate () in
+               let nfa_item = { nfa_item with Gear.nfa_id = new_id } in
+               (match NFAItemRepo.add nfa_item with
+                | Error _ -> import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+                | Ok () -> import_loop rest headers (row_num + 1) { stats with imported = stats.imported + 1 } (nfa_item :: acc))
+             | Cancel -> Error (Failure "Import cancelled"))
+          | Ok None ->
+            (* Not found, import as new *)
+            (match NFAItemRepo.add nfa_item with
+             | Error _ -> import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+             | Ok () -> import_loop rest headers (row_num + 1) { stats with imported = stats.imported + 1 } (nfa_item :: acc))
+          | Error _ ->
+            import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+  in
+  import_loop rows [] 0 stats []
+
+let import_attachment_row headers row =
+  try
+    let id_str = match get_required_field ~name:"id" headers row with
+      | Ok v -> v
+      | Error errs -> raise (Failure (String.concat "; " errs))
+    in
+    let name = match get_required_field ~name:"name" headers row with
+      | Ok v -> v
+      | Error errs -> raise (Failure (String.concat "; " errs))
+    in
+    let category = match get_required_field ~name:"category" headers row with
+      | Ok v -> v
+      | Error errs -> raise (Failure (String.concat "; " errs))
+    in
+    let id = Id.of_string id_str in
+    let brand = get_optional_field ~name:"brand" headers row in
+    let model = get_optional_field ~name:"model" headers row in
+    let serial_number = get_optional_field ~name:"serial_number" headers row in
+    let att_purchase_date = match get_field ~name:"purchase_date" headers row with
+      | Some "" | None -> None
+      | Some s -> match Timestamp.of_iso8601 s with Ok ts -> Some ts | Error _ -> None
+    in
+    let mounted_on_firearm_id = match get_id_field ~name:"mounted_on_firearm_id" headers row with
+      | Ok (Some id) -> Some id
+      | _ -> None
+    in
+    let mount_position = get_optional_field ~name:"mount_position" headers row in
+    let zero_distance_yards = match get_int_field ~name:"zero_distance_yards" headers row with
+      | Ok (Some i) -> Some i
+      | _ -> None
+    in
+    let zero_notes = get_optional_field ~name:"zero_notes" headers row in
+    let att_notes = get_optional_field ~name:"notes" headers row in
+    let created_at = match get_field ~name:"created_at" headers row with
+      | Some "" | None -> Timestamp.now ()
+      | Some s -> match Timestamp.of_iso8601 s with Ok ts -> ts | Error _ -> Timestamp.now ()
+    in
+    let updated_at = match get_field ~name:"updated_at" headers row with
+      | Some "" | None -> Timestamp.now ()
+      | Some s -> match Timestamp.of_iso8601 s with Ok ts -> ts | Error _ -> Timestamp.now ()
+    in
+    let attachment : Gear.attachment = {
+      Gear.att_id = id;
+      Gear.att_name = name;
+      Gear.att_category = category;
+      brand;
+      model;
+      serial_number;
+      att_purchase_date;
+      mounted_on_firearm_id;
+      mount_position;
+      zero_distance_yards;
+      zero_notes;
+      att_notes;
+      att_created_at = created_at;
+      att_updated_at = updated_at;
+    } in
+    Ok attachment
+  with Failure msg -> Error [msg]
+    | e -> Error ["Unexpected error: " ^ Printexc.to_string e]
+
+let import_attachments_section rows stats ~on_duplicate =
+  let rec import_loop rows headers row_num stats acc =
+    match rows with
+    | [] -> Ok (List.rev acc, stats)
+    | row :: rest ->
+      if row_num = 0 then
+        (* Header row, save it and continue *)
+        import_loop rest row (row_num + 1) stats acc
+      else
+        match import_attachment_row headers row with
+        | Error errs ->
+          let stats = { stats with errors = stats.errors + 1 } in
+          import_loop rest headers (row_num + 1) stats acc
+        | Ok attachment ->
+          (* Check for duplicates by ID *)
+          match AttachmentRepo.get_by_id attachment.Gear.att_id with
+          | Ok (Some existing) ->
+            let dup_info = {
+              entity_type = "attachment";
+              id = attachment.Gear.att_id;
+              name = attachment.Gear.att_name;
+              existing_record = existing.Gear.att_name;
+            } in
+            (match on_duplicate dup_info with
+             | Skip -> import_loop rest headers (row_num + 1) { stats with skipped = stats.skipped + 1 } acc
+             | Overwrite ->
+               (match AttachmentRepo.delete attachment.Gear.att_id with
+                | Error _ -> import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+                | Ok () ->
+                  (match AttachmentRepo.add attachment with
+                   | Error _ -> import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+                   | Ok () -> import_loop rest headers (row_num + 1) { stats with overwritten = stats.overwritten + 1 } acc))
+             | Import_as_new ->
+               let new_id = Id.generate () in
+               let attachment = { attachment with Gear.att_id = new_id } in
+               (match AttachmentRepo.add attachment with
+                | Error _ -> import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+                | Ok () -> import_loop rest headers (row_num + 1) { stats with imported = stats.imported + 1 } (attachment :: acc))
+             | Cancel -> Error (Failure "Import cancelled"))
+          | Ok None ->
+            (* Not found, import as new *)
+            (match AttachmentRepo.add attachment with
+             | Error _ -> import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+             | Ok () -> import_loop rest headers (row_num + 1) { stats with imported = stats.imported + 1 } (attachment :: acc))
+          | Error _ ->
+            import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+  in
+  import_loop rows [] 0 stats []
+
+let import_consumable_row headers row =
+  try
+    let id_str = match get_required_field ~name:"id" headers row with
+      | Ok v -> v
+      | Error errs -> raise (Failure (String.concat "; " errs))
+    in
+    let name = match get_required_field ~name:"name" headers row with
+      | Ok v -> v
+      | Error errs -> raise (Failure (String.concat "; " errs))
+    in
+    let category = match get_required_field ~name:"category" headers row with
+      | Ok v -> v
+      | Error errs -> raise (Failure (String.concat "; " errs))
+    in
+    let unit = match get_required_field ~name:"unit" headers row with
+      | Ok v -> v
+      | Error errs -> raise (Failure (String.concat "; " errs))
+    in
+    let id = Id.of_string id_str in
+    let quantity = get_field ~name:"quantity" headers row |> Option.map int_of_string |> Option.value ~default:0 in
+    let min_quantity = get_field ~name:"min_quantity" headers row |> Option.map int_of_string |> Option.value ~default:0 in
+    let notes = get_optional_field ~name:"notes" headers row in
+    let purchase_price = match get_float_field ~name:"purchase_price" headers row with
+      | Ok (Some f) -> Some f
+      | _ -> None
+    in
+    let created_at = match get_field ~name:"created_at" headers row with
+      | Some "" | None -> Timestamp.now ()
+      | Some s -> match Timestamp.of_iso8601 s with Ok ts -> ts | Error _ -> Timestamp.now ()
+    in
+    let updated_at = match get_field ~name:"updated_at" headers row with
+      | Some "" | None -> Timestamp.now ()
+      | Some s -> match Timestamp.of_iso8601 s with Ok ts -> ts | Error _ -> Timestamp.now ()
+    in
+    let consumable : Consumable.consumable = {
+      Consumable.id = id;
+      name;
+      category;
+      unit;
+      quantity;
+      min_quantity;
+      notes;
+      purchase_price;
+      created_at;
+      updated_at;
+    } in
+    Ok consumable
+  with Failure msg -> Error [msg]
+    | e -> Error ["Unexpected error: " ^ Printexc.to_string e]
+
+let import_consumables_section rows stats ~on_duplicate =
+  let rec import_loop rows headers row_num stats acc =
+    match rows with
+    | [] -> Ok (List.rev acc, stats)
+    | row :: rest ->
+      if row_num = 0 then
+        (* Header row, save it and continue *)
+        import_loop rest row (row_num + 1) stats acc
+      else
+        match import_consumable_row headers row with
+        | Error errs ->
+          let stats = { stats with errors = stats.errors + 1 } in
+          import_loop rest headers (row_num + 1) stats acc
+        | Ok consumable ->
+          (* Check for duplicates by ID *)
+          match ConsumableRepo.get_by_id consumable.Consumable.id with
+          | Ok (Some existing) ->
+            let dup_info = {
+              entity_type = "consumable";
+              id = consumable.Consumable.id;
+              name = consumable.name;
+              existing_record = existing.name;
+            } in
+            (match on_duplicate dup_info with
+             | Skip -> import_loop rest headers (row_num + 1) { stats with skipped = stats.skipped + 1 } acc
+             | Overwrite ->
+               (match ConsumableRepo.delete consumable.Consumable.id with
+                | Error _ -> import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+                | Ok () ->
+                  (match ConsumableRepo.add consumable with
+                   | Error _ -> import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+                   | Ok () -> import_loop rest headers (row_num + 1) { stats with overwritten = stats.overwritten + 1 } acc))
+             | Import_as_new ->
+               let new_id = Id.generate () in
+               let consumable = { consumable with Consumable.id = new_id } in
+               (match ConsumableRepo.add consumable with
+                | Error _ -> import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+                | Ok () -> import_loop rest headers (row_num + 1) { stats with imported = stats.imported + 1 } (consumable :: acc))
+             | Cancel -> Error (Failure "Import cancelled"))
+          | Ok None ->
+            (* Not found, import as new *)
+            (match ConsumableRepo.add consumable with
+             | Error _ -> import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+             | Ok () -> import_loop rest headers (row_num + 1) { stats with imported = stats.imported + 1 } (consumable :: acc))
+          | Error _ ->
+            import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+  in
+  import_loop rows [] 0 stats []
+
+let import_reload_batch_row headers row =
+  try
+    let id_str = match get_required_field ~name:"id" headers row with
+      | Ok v -> v
+      | Error errs -> raise (Failure (String.concat "; " errs))
+    in
+    let cartridge = match get_required_field ~name:"cartridge" headers row with
+      | Ok v -> v
+      | Error errs -> raise (Failure (String.concat "; " errs))
+    in
+    let date_created_str = match get_required_field ~name:"date_created" headers row with
+      | Ok v -> v
+      | Error errs -> raise (Failure (String.concat "; " errs))
+    in
+    let date_created = match Timestamp.of_iso8601 date_created_str with
+      | Ok ts -> ts
+      | Error _ -> raise (Failure "Invalid date_created format")
+    in
+    let id = Id.of_string id_str in
+    let firearm_id = match get_id_field ~name:"firearm_id" headers row with
+      | Ok (Some id) -> Some id
+      | _ -> None
+    in
+let bullet_maker = get_field ~name:"bullet_maker" headers row |> Option.value ~default:"" in
+    let bullet_model = get_field ~name:"bullet_model" headers row |> Option.value ~default:"" in
+    let powder_name = get_field ~name:"powder_name" headers row |> Option.value ~default:"" in
+    let bullet_weight_gr = match get_int_field ~name:"bullet_weight_gr" headers row with
+      | Ok (Some i) -> Some i
+      | _ -> None
+    in
+    let powder_charge_gr = match get_float_field ~name:"powder_charge_gr" headers row with
+      | Ok (Some f) -> Some f
+      | _ -> None
+    in
+    let powder_lot = get_field ~name:"powder_lot" headers row |> Option.value ~default:"" in
+    let primer_maker = get_field ~name:"primer_maker" headers row |> Option.value ~default:"" in
+    let primer_type = get_field ~name:"primer_type" headers row |> Option.value ~default:"" in
+    let case_brand = get_field ~name:"case_brand" headers row |> Option.value ~default:"" in
+    let case_times_fired = match get_int_field ~name:"case_times_fired" headers row with
+      | Ok (Some i) -> Some i
+      | _ -> None
+    in
+    let case_prep_notes = get_field ~name:"case_prep_notes" headers row |> Option.value ~default:"" in
+    let coal_in = match get_float_field ~name:"coal_in" headers row with
+      | Ok (Some f) -> Some f
+      | _ -> None
+    in
+    let crimp_style = get_field ~name:"crimp_style" headers row |> Option.value ~default:"" in
+    let test_date = match get_field ~name:"test_date" headers row with
+      | Some "" | None -> None
+      | Some s -> match Timestamp.of_iso8601 s with Ok ts -> Some ts | Error _ -> None
+    in
+    let avg_velocity = match get_int_field ~name:"avg_velocity" headers row with
+      | Ok (Some i) -> Some i
+      | _ -> None
+    in
+    let es = match get_int_field ~name:"es" headers row with
+      | Ok (Some i) -> Some i
+      | _ -> None
+    in
+    let sd = match get_int_field ~name:"sd" headers row with
+      | Ok (Some i) -> Some i
+      | _ -> None
+    in
+    let group_size_inches = match get_float_field ~name:"group_size_inches" headers row with
+      | Ok (Some f) -> Some f
+      | _ -> None
+    in
+    let group_distance_yards = match get_int_field ~name:"group_distance_yards" headers row with
+      | Ok (Some i) -> Some i
+      | _ -> None
+    in
+    let intended_use = get_field ~name:"intended_use" headers row |> Option.value ~default:"" in
+    let status = get_field ~name:"status" headers row |> Option.value ~default:"WORKUP" in
+    let notes = get_optional_field ~name:"notes" headers row in
+    let created_at = match get_field ~name:"created_at" headers row with
+      | Some "" | None -> Timestamp.now ()
+      | Some s -> match Timestamp.of_iso8601 s with Ok ts -> ts | Error _ -> Timestamp.now ()
+    in
+    let updated_at = match get_field ~name:"updated_at" headers row with
+      | Some "" | None -> Timestamp.now ()
+      | Some s -> match Timestamp.of_iso8601 s with Ok ts -> ts | Error _ -> Timestamp.now ()
+    in
+    let reload_batch : Reload.reload_batch = {
+      Reload.id = id;
+      Reload.cartridge;
+      firearm_id;
+      date_created;
+      bullet_maker;
+      bullet_model;
+      bullet_weight_gr;
+      powder_name;
+      powder_charge_gr;
+      powder_lot;
+      primer_maker;
+      primer_type;
+      case_brand;
+      case_times_fired;
+      case_prep_notes;
+      coal_in;
+      crimp_style;
+      test_date;
+      avg_velocity;
+      es;
+      sd;
+      group_size_inches;
+      group_distance_yards;
+      intended_use;
+      status;
+      notes;
+      created_at;
+      updated_at;
+    } in
+    Ok reload_batch
+  with Failure msg -> Error [msg]
+    | e -> Error ["Unexpected error: " ^ Printexc.to_string e]
+
+let import_reload_batches_section rows stats ~on_duplicate =
+  let rec import_loop rows headers row_num stats acc =
+    match rows with
+    | [] -> Ok (List.rev acc, stats)
+    | row :: rest ->
+      if row_num = 0 then
+        (* Header row, save it and continue *)
+        import_loop rest row (row_num + 1) stats acc
+      else
+        match import_reload_batch_row headers row with
+        | Error errs ->
+          let stats = { stats with errors = stats.errors + 1 } in
+          import_loop rest headers (row_num + 1) stats acc
+        | Ok reload_batch ->
+          (* Check for duplicates by ID *)
+          match ReloadRepo.get_reload_batch_by_id reload_batch.Reload.id with
+          | Ok existing ->
+            let dup_info = {
+              entity_type = "reload_batch";
+              id = reload_batch.Reload.id;
+              name = reload_batch.cartridge;
+              existing_record = existing.cartridge;
+            } in
+            (match on_duplicate dup_info with
+             | Skip -> import_loop rest headers (row_num + 1) { stats with skipped = stats.skipped + 1 } acc
+             | Overwrite ->
+               (match ReloadRepo.delete_reload_batch reload_batch.Reload.id with
+                | Error _ -> import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+                | Ok () ->
+                  (match ReloadRepo.add_reload_batch reload_batch with
+                   | Error _ -> import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+                   | Ok () -> import_loop rest headers (row_num + 1) { stats with overwritten = stats.overwritten + 1 } acc))
+             | Import_as_new ->
+               let new_id = Id.generate () in
+               let reload_batch = { reload_batch with Reload.id = new_id } in
+               (match ReloadRepo.add_reload_batch reload_batch with
+                | Error _ -> import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+                | Ok () -> import_loop rest headers (row_num + 1) { stats with imported = stats.imported + 1 } (reload_batch :: acc))
+             | Cancel -> Error (Failure "Import cancelled"))
+          | Ok None ->
+            (* Not found, import as new *)
+            (match ReloadRepo.add_reload_batch reload_batch with
+             | Error _ -> import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+             | Ok () -> import_loop rest headers (row_num + 1) { stats with imported = stats.imported + 1 } (reload_batch :: acc))
+          | Error _ ->
+            import_loop rest headers (row_num + 1) { stats with errors = stats.errors + 1 } acc
+  in
+  import_loop rows [] 0 stats []
 
 let empty_stats = { total_rows = 0; imported = 0; skipped = 0; overwritten = 0; errors = 0 }
 
@@ -732,17 +1335,29 @@ let import_all_from_csv ~path ~dry_run ~on_duplicate () =
         | Ok (_, stats) ->
           all_stats := ("firearms", { stats with total_rows = List.length rows - 1 }) :: !all_stats
       else if section_name = "SOFT_GEAR" then
-        (* TODO: Implement soft gear import *)
-        ()
+        match import_soft_gear_section rows empty_stats ~on_duplicate with
+        | Error (Failure "Import cancelled") -> cancelled := true
+        | Error _ -> has_errors := true
+        | Ok (_, stats) ->
+          all_stats := ("soft_gear", { stats with total_rows = List.length rows - 1 }) :: !all_stats
       else if section_name = "NFA_ITEMS" then
-        (* TODO: Implement NFA items import *)
-        ()
+        match import_nfa_items_section rows empty_stats ~on_duplicate with
+        | Error (Failure "Import cancelled") -> cancelled := true
+        | Error _ -> has_errors := true
+        | Ok (_, stats) ->
+          all_stats := ("nfa_items", { stats with total_rows = List.length rows - 1 }) :: !all_stats
       else if section_name = "ATTACHMENTS" then
-        (* TODO: Implement attachments import *)
-        ()
+        match import_attachments_section rows empty_stats ~on_duplicate with
+        | Error (Failure "Import cancelled") -> cancelled := true
+        | Error _ -> has_errors := true
+        | Ok (_, stats) ->
+          all_stats := ("attachments", { stats with total_rows = List.length rows - 1 }) :: !all_stats
       else if section_name = "CONSUMABLES" then
-        (* TODO: Implement consumables import *)
-        ()
+        match import_consumables_section rows empty_stats ~on_duplicate with
+        | Error (Failure "Import cancelled") -> cancelled := true
+        | Error _ -> has_errors := true
+        | Ok (_, stats) ->
+          all_stats := ("consumables", { stats with total_rows = List.length rows - 1 }) :: !all_stats
       else if section_name = "RELOAD_BATCHES" then
         (* TODO: Implement reload batches import *)
         ()

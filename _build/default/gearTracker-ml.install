@@ -113,12 +113,16 @@ lib: [
   "_build/install/default/lib/gearTracker-ml/gearTracker_ml__Validation.cmi"
   "_build/install/default/lib/gearTracker-ml/gearTracker_ml__Validation.cmt"
   "_build/install/default/lib/gearTracker-ml/gearTracker_ml__Validation.cmx"
+  "_build/install/default/lib/gearTracker-ml/gearTracker_ml__Vault.cmi"
+  "_build/install/default/lib/gearTracker-ml/gearTracker_ml__Vault.cmt"
+  "_build/install/default/lib/gearTracker-ml/gearTracker_ml__Vault.cmx"
   "_build/install/default/lib/gearTracker-ml/id.ml"
   "_build/install/default/lib/gearTracker-ml/loadout.ml"
   "_build/install/default/lib/gearTracker-ml/opam"
   "_build/install/default/lib/gearTracker-ml/reload.ml"
   "_build/install/default/lib/gearTracker-ml/timestamp.ml"
   "_build/install/default/lib/gearTracker-ml/validation.ml"
+  "_build/install/default/lib/gearTracker-ml/vault.ml"
 ]
 libexec: [
   "_build/install/default/lib/gearTracker-ml/gearTracker_ml.cmxs"
@@ -126,6 +130,7 @@ libexec: [
 bin: [
   "_build/install/default/bin/gearTracker-ml"
   "_build/install/default/bin/gearTracker-ml-gui"
+  "_build/install/default/bin/gearTracker-ml-gui-gtk3"
 ]
 doc: [
   "_build/install/default/doc/gearTracker-ml/LICENSE"
